@@ -85,9 +85,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .card.leave-right { transition: transform .25s ease, opacity .25s ease; transform: translateX(120%) rotate(12deg); opacity: 0; }
 .card.leave-left { transition: transform .25s ease, opacity .25s ease; transform: translateX(-120%) rotate(-12deg); opacity: 0; }
 .card.snap { transition: transform .2s ease; }
-.stamp { position: absolute; top: 16px; padding: 5px 11px; border-radius: 10px; font-weight: 800; font-size: 15px; border: 2px solid currentColor; opacity: 0; pointer-events: none; background: var(--card); }
-.stamp.yes { right: 16px; color: var(--term); }
-.stamp.no { left: 16px; color: var(--no-ink); }
+.tint { position: absolute; inset: 0; opacity: 0; pointer-events: none; border-radius: inherit; z-index: 2; }
+.tint.yes { background: var(--yes-bg); }
+.tint.no { background: var(--no-ink); }
+.badge { position: absolute; top: 50%; left: 50%; width: 120px; height: 120px; margin: -60px 0 0 -60px; display: grid; place-items: center; opacity: 0; transform: scale(.4); pointer-events: none; z-index: 3; }
+.badge svg { width: 110px; height: 110px; }
+.badge.yes { color: var(--yes-ink); }
+.badge.no { color: var(--card); }
 .ask { font-size: 27px; font-weight: 700; line-height: 1.3; margin: 0; text-wrap: balance; width: 100%; hyphens: manual; }
 .ask mark { background: var(--hl); color: inherit; border-radius: 6px; padding: 0 5px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .tap-hint { margin-top: auto; text-align: center; font-size: 15px; color: var(--muted); }
@@ -207,8 +211,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     </div>
     <div class="stage">
       <article class="card" id="card" aria-live="polite">
-        <span class="stamp yes">Wusste ich</span>
-        <span class="stamp no">Noch nicht</span>
+        <div class="tint yes"></div><div class="tint no"></div>
+        <div class="badge yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>
+        <div class="badge no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
         <h2 class="ask fit" id="cAsk"></h2>
         <div class="answer" id="cAnswer" hidden></div>
         <div class="tap-hint" id="tapHint">Tippen, um die Antwort zu sehen</div>
@@ -280,6 +285,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   <button id="mRun">Durchlauf zum Anhören</button>
   <button id="mOverview">Kartenübersicht</button>
   <button id="mAuto">Automatisch vorlesen: aus</button>
+  <button id="mShuffle">Mischmodus: aus</button>
+  <button id="mOffline">Für offline laden</button>
   <button id="mSync">Jetzt abgleichen</button>
   <button class="danger" id="mReset">Heute zurücksetzen</button>
 </div>
@@ -378,6 +385,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   let toastTimer;
   function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3500); }
   const endOfToday = () => { const d = new Date(); d.setHours(23, 59, 59, 999); return d.getTime(); };
+  function shuffleInPlace(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   function dueLists(now) {
     const due = [], fresh = [];
     for (const [id] of cards) {
@@ -385,7 +393,10 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       if (!st || !st.reps) fresh.push(id); else if (st.due <= now) due.push(id);
     }
     due.sort((a, b) => states.get(a).due - states.get(b).due);
-    fresh.sort((a, b) => { const x = cards.get(a), y = cards.get(b); return (x.stage || 9) - (y.stage || 9) || (x.order || 0) - (y.order || 0); });
+    // Neue Karten: Aufzählen vor Erkennen, innerhalb jeder Gruppe zufällig (Reihenfolge darf nichts verraten)
+    const rnd = new Map(fresh.map(id => [id, Math.random()]));
+    fresh.sort((a, b) => ((cards.get(a).stage || 9) - (cards.get(b).stage || 9)) || (rnd.get(a) - rnd.get(b)));
+    if (store.get("shuffle", false)) shuffleInPlace(due);
     return { due, fresh };
   }
   function fmtWhen(ts) {
@@ -515,7 +526,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     const card = $("card");
     card.classList.remove("back-in", "snap");
     card.style.transform = "";
-    card.classList.add(g === 1 ? "leave-left" : "leave-right");
+    paintSwipe(g === 1 ? -TH : TH); card.classList.add(g === 1 ? "leave-left" : "leave-right");
     session.current = null;
     setTimeout(nextCard, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 230);
   }
@@ -533,7 +544,17 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   const card = $("card");
   const TH = 80;
   let sx = 0, sy = 0, dx = 0, active = false, horiz = null, tapCandidate = false;
-  function resetStamps() { card.querySelectorAll(".stamp").forEach(s => s.style.opacity = 0); }
+  function paintSwipe(d) {
+    const p = Math.max(-1, Math.min(1, d / TH)), q = Math.min(1, Math.abs(p) * 1.15);
+    card.querySelector(".tint.yes").style.opacity = d > 0 ? q : 0;
+    card.querySelector(".tint.no").style.opacity = d < 0 ? q : 0;
+    const by = card.querySelector(".badge.yes"), bn = card.querySelector(".badge.no");
+    const sc = v => "scale(" + (0.4 + 0.6 * v) + ")" + (v >= 1 ? " scale(1.1)" : "");
+    by.style.opacity = d > 0 ? Math.abs(p) : 0; by.style.transform = sc(d > 0 ? Math.abs(p) : 0);
+    bn.style.opacity = d < 0 ? Math.abs(p) : 0; bn.style.transform = sc(d < 0 ? Math.abs(p) : 0);
+    card.querySelectorAll(".ask,.answer,.tap-hint").forEach(t => t.style.opacity = 1 - q);
+  }
+  function resetStamps() { paintSwipe(0); }
   function begin(x, y) { sx = x; sy = y; dx = 0; active = true; horiz = null; tapCandidate = true; card.classList.remove("snap", "back-in"); }
   function move(x, y, ev) {
     if (!active || run.active) return;
@@ -544,9 +565,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (ev && ev.cancelable) ev.preventDefault();
     if (!session.revealed) return;
     card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
-    const p = Math.min(1, Math.abs(dx) / TH);
-    card.querySelector(".stamp.yes").style.opacity = dx > 0 ? p : 0;
-    card.querySelector(".stamp.no").style.opacity = dx < 0 ? p : 0;
+    paintSwipe(dx);
   }
   function end() {
     if (!active) return; active = false;
@@ -669,6 +688,29 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       for (const part of ["q", "a"]) { try { await getAudio(c, part); } catch (_) { return; } }
     }
   }
+  function setShuffleLabel() { $("mShuffle").textContent = "Mischmodus: " + (store.get("shuffle", false) ? "an" : "aus"); }
+  setShuffleLabel();
+  $("mShuffle").addEventListener("click", () => {
+    const on = !store.get("shuffle", false); store.set("shuffle", on); setShuffleLabel(); openMenu(false);
+    toast(on ? "Wiederholungen kommen gemischt." : "Wiederholungen kommen nach Fälligkeit.");
+  });
+  let offlineBusy = false;
+  $("mOffline").addEventListener("click", async () => {
+    openMenu(false);
+    if (offlineBusy) { toast("Wird schon geladen …"); return; }
+    if (!navigator.onLine) { toast("Dafür brauchst du Internet."); return; }
+    offlineBusy = true;
+    const list = [...cards.values()];
+    let done = 0, failed = 0;
+    toast("Lade " + list.length + " Karten für offline …");
+    for (const c of list) {
+      for (const part of ["q", "a"]) { try { await getAudio(c, part); } catch (_) { failed++; } }
+      done++;
+      if (done % 5 === 0 || done === list.length) toast("Für offline geladen: " + done + " von " + list.length);
+    }
+    offlineBusy = false;
+    toast(failed ? "Fertig, aber " + failed + " Teile fehlen. Versuch es später noch einmal." : "Alle " + list.length + " Karten sind offline verfügbar.");
+  });
   function setAutoLabel() { $("mAuto").textContent = "Automatisch vorlesen: " + (autoRead ? "an" : "aus"); }
   setAutoLabel();
   $("mAuto").addEventListener("click", () => { autoRead = !autoRead; store.set("autoRead", autoRead); setAutoLabel(); openMenu(false); unlockAudio(); toast(autoRead ? "Karten werden automatisch vorgelesen." : "Automatisches Vorlesen ist aus."); });
