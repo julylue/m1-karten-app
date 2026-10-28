@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="M1 Karten">
+<meta name="theme-color" content="#e9efec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1513" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>M1 Karten</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: Stil 2. Eine farbige Karte pro Bildschirm, Frage mittig, Antwort in einem hellen Feld; zwei Antworttasten in Daumenhöhe. */
+:root {
+  --bg: #e9efec; --bg2: #dfe8e4; --ink: #15201c; --muted: #5d6b66; --line: #d3ddd8;
+  --accent: #2b6a5b; --card: #ffffff; --hl: #d8ece5; --term: #2b6a5b; --num-bg: #e4efeb; --sub: #5d6b66;
+  --soft: #e4efeb;
+  --no-bg: #ffffff; --no-ink: #b25145; --no-ring: #e7c3bd; --yes-bg: #2b6a5b; --yes-ink: #ffffff;
+  --shadow: 0 1px 2px rgba(20,40,34,.06), 0 12px 32px rgba(20,40,34,.12);
+  --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", -apple-system, "SF Pro Text", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1513; --bg2: #131b18; --ink: #e6eeeb; --muted: #97a6a0; --line: #2b3632;
+    --accent: #76b7a5; --card: #1b2421; --hl: #24423a; --term: #8fd0bd; --num-bg: #1f2d29; --sub: #97a6a0;
+    --soft: #1f2d29;
+    --no-bg: #1b2421; --no-ink: #e8968a; --no-ring: #4a2f2b; --yes-bg: #76b7a5; --yes-ink: #0f1513;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body { position: fixed; inset: 0; width: 100%; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--bg); }
+body {
+  margin: 0; background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%); color: var(--ink);
+  font-family: var(--font); font-size: 17px; line-height: 1.5; -webkit-font-smoothing: antialiased; overscroll-behavior: none;
+}
+[hidden] { display: none !important; }
+#nl-badge-frame, iframe[id^="nl-badge"] { display: none !important; }
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; -webkit-tap-highlight-color: transparent; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.app {
+  height: 100%; display: flex; flex-direction: column; max-width: 520px; margin: 0 auto;
+  padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 18px;
+}
+.screen { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 14px; }
+.eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.primary { width: 100%; padding: 17px; border-radius: 16px; background: var(--yes-bg); color: var(--yes-ink); font-size: 18px; font-weight: 700; }
+.primary:active { transform: scale(.985); }
+.note { color: var(--muted); font-size: 15px; margin: 0; text-wrap: pretty; }
+
+/* Übersicht */
+.home-main { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+.hero { background: var(--card); border-radius: 26px; padding: 28px 24px; box-shadow: var(--shadow); display: grid; gap: 6px; }
+.big { font-size: 80px; font-weight: 800; color: var(--accent); line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.big-sub { font-size: 21px; font-weight: 700; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip { background: var(--soft); border-radius: 999px; padding: 6px 12px; font-size: 14px; font-variant-numeric: tabular-nums; }
+
+/* Abfrage */
+.bar { display: flex; align-items: center; gap: 12px; }
+.close { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); flex: none; }
+.close svg { width: 20px; height: 20px; }
+.progress { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); width: 0; border-radius: 3px; transition: width .3s ease; }
+.count { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
+.type { padding-left: 4px; }
+.stage { flex: 1; min-height: 0; display: flex; }
+.card {
+  position: relative; flex: 1; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden;
+  background: var(--card); color: var(--ink); border-radius: 26px; box-shadow: var(--shadow);
+  padding: 28px 24px; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; text-align: left; gap: 22px;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none; will-change: transform;
+}
+.card.back-in { animation: pop .22s ease; }
+@keyframes pop { from { transform: scale(.97); opacity: .6; } to { transform: none; opacity: 1; } }
+.card.leave-right { transition: transform .25s ease, opacity .25s ease; transform: translateX(120%) rotate(12deg); opacity: 0; }
+.card.leave-left { transition: transform .25s ease, opacity .25s ease; transform: translateX(-120%) rotate(-12deg); opacity: 0; }
+.card.snap { transition: transform .2s ease; }
+.stamp { position: absolute; top: 16px; padding: 5px 11px; border-radius: 10px; font-weight: 800; font-size: 15px; border: 2px solid currentColor; opacity: 0; pointer-events: none; background: var(--card); }
+.stamp.yes { right: 16px; color: var(--term); }
+.stamp.no { left: 16px; color: var(--no-ink); }
+.ask { font-size: 27px; font-weight: 700; line-height: 1.3; margin: 0; text-wrap: balance; width: 100%; hyphens: manual; }
+.ask mark { background: var(--hl); color: inherit; border-radius: 6px; padding: 0 5px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.tap-hint { margin-top: auto; text-align: center; font-size: 15px; color: var(--muted); }
+.answer { border-top: 1px solid var(--line); padding-top: 22px; width: 100%; min-width: 0; }
+.answer .term { font-size: 28px; font-weight: 800; color: var(--term); line-height: 1.2; width: 100%; }
+.answer ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.answer li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; }
+.answer li > i { font-style: normal; width: 28px; height: 28px; border-radius: 50%; background: var(--num-bg); color: var(--term); font-weight: 700; font-size: 14px; display: grid; place-items: center; }
+.answer li .t { display: block; font-size: 20px; font-weight: 600; line-height: 1.3; min-width: 0; padding-top: 1px; }
+.answer li small { display: block; font-weight: 400; font-size: 14px; color: var(--sub); margin-top: 1px; }
+.answer .anote { margin-top: 10px; font-size: 15px; color: var(--sub); }
+.fit { white-space: normal; overflow-wrap: normal; }
+.fit.broken { overflow-wrap: anywhere; hyphens: auto; }
+
+.answers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ans { padding: 16px 10px; border-radius: 16px; font-size: 17px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.ans svg { width: 20px; height: 20px; flex: none; }
+.ans.no { background: var(--no-bg); color: var(--no-ink); box-shadow: inset 0 0 0 2px var(--no-ring); }
+.ans.yes { background: var(--yes-bg); color: var(--yes-ink); }
+.ans:active { transform: scale(.98); }
+.swipe-hint { text-align: center; font-size: 14px; color: var(--muted); margin: -4px 0 0; }
+
+/* Fertig */
+.done-main { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+.done-main h1 { font-size: 32px; line-height: 1.2; margin: 0; text-wrap: balance; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 12px; font-size: 15px; max-width: calc(100% - 36px); }
+
+/* Vorlesen */
+.typeline { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding-left: 4px; }
+.speak { width: 40px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: var(--muted); margin-right: -6px; }
+.speak svg { width: 22px; height: 22px; }
+.speak.on { color: var(--term); }
+.speak.busy { opacity: .5; }
+
+/* Durchlauf */
+.setup { background: var(--card); border-radius: 20px; box-shadow: var(--shadow); padding: 20px; display: grid; gap: 14px; }
+.setup .lab { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-weight: 600; }
+.setup .lab b { color: var(--term); font-variant-numeric: tabular-nums; }
+.setup input[type=range] { width: 100%; accent-color: var(--accent); margin: 0 0 6px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--soft); padding: 4px; border-radius: 12px; }
+.seg button { padding: 10px; border-radius: 9px; font-weight: 600; font-size: 15px; }
+.seg button.on { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.runctl { display: flex; justify-content: center; align-items: center; gap: 22px; padding: 4px 0; }
+.runctl button { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); background: var(--card); box-shadow: var(--shadow); }
+.runctl button.big { width: 68px; height: 68px; background: var(--yes-bg); color: var(--yes-ink); }
+.runctl svg { width: 24px; height: 24px; }
+.runctl button.big svg { width: 30px; height: 30px; }
+
+/* Menü und Kartenübersicht */
+.topline { display: flex; align-items: center; justify-content: space-between; min-height: 40px; }
+.dots { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); margin-right: -8px; }
+.dots svg { width: 22px; height: 22px; }
+.menu { position: fixed; top: calc(58px + env(safe-area-inset-top, 0px)); right: max(18px, env(safe-area-inset-right, 0px)); z-index: 20;
+  background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 6px; min-width: 230px; display: grid; }
+.menu button { text-align: left; padding: 12px 14px; border-radius: 11px; font-size: 16px; font-weight: 600; }
+.menu button:active { background: var(--soft); }
+.menu .danger { color: var(--no-ink); }
+.scrim { position: fixed; inset: 0; z-index: 15; }
+.confirm { background: var(--card); border-radius: 20px; box-shadow: var(--shadow); padding: 20px; display: grid; gap: 14px; }
+.confirm h3 { margin: 0; font-size: 19px; }
+.confirm p { margin: 0; color: var(--muted); font-size: 15px; }
+.confirm .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.confirm .row button { padding: 13px; border-radius: 13px; font-weight: 700; background: var(--soft); }
+.confirm .row .go { background: var(--no-ink); color: var(--card); }
+.ov-head { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.ov-head h1 { font-size: 20px; margin: 0; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tile { background: var(--card); border-radius: 16px; padding: 12px; box-shadow: var(--shadow); display: grid; gap: 2px; }
+.tile b { font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile span { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
+.dot.ok { background: var(--term); } .dot.weak { background: var(--no-ink); } .dot.new { background: var(--line); box-shadow: inset 0 0 0 1.5px var(--muted); }
+.ov-list { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; background: var(--card); border-radius: 20px; box-shadow: var(--shadow); }
+.ov-row { display: block; width: 100%; text-align: left; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+.ov-row:last-child { border-bottom: 0; }
+.ov-main { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.ov-term { font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+.ov-when { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.ov-bar { grid-column: 2 / 4; height: 4px; background: var(--soft); border-radius: 2px; overflow: hidden; margin-top: 2px; }
+.ov-bar i { display: block; height: 100%; background: var(--term); border-radius: 2px; }
+.ov-q { display: none; grid-column: 2 / 4; font-size: 14px; color: var(--muted); margin-top: 4px; }
+.ov-row.open .ov-q { display: block; }
+.ov-list .empty { padding: 20px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { *, .card { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="screen" id="home">
+    <div class="topline">
+      <span class="eyebrow">M1 Psychologie</span>
+      <button class="dots" id="menuBtn" aria-label="Optionen"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg></button>
+    </div>
+    <div class="home-main">
+      <div class="hero">
+        <div class="big" id="dueBig">–</div>
+        <div class="big-sub" id="dueText">Karten werden geladen</div>
+        <div class="chips" id="chips"></div>
+      </div>
+      <p class="note" id="homeNote" hidden></p>
+      <p class="note" id="netNote" hidden></p>
+    </div>
+    <button class="primary" id="startBtn" hidden>Los geht's</button>
+  </section>
+
+  <section class="screen" id="review" hidden>
+    <div class="bar">
+      <button class="close" id="closeBtn" aria-label="Zurück zur Übersicht">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="progress"><i id="progressFill"></i></div>
+      <span class="count" id="countText"></span>
+    </div>
+    <div class="typeline">
+      <span class="eyebrow" id="cType"></span>
+      <button class="speak" id="speakBtn" aria-label="Vorlesen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
+    </div>
+    <div class="stage">
+      <article class="card" id="card" aria-live="polite">
+        <span class="stamp yes">Wusste ich</span>
+        <span class="stamp no">Noch nicht</span>
+        <h2 class="ask fit" id="cAsk"></h2>
+        <div class="answer" id="cAnswer" hidden></div>
+        <div class="tap-hint" id="tapHint">Tippen, um die Antwort zu sehen</div>
+      </article>
+    </div>
+    <div class="answers" id="answers" hidden>
+      <button class="ans no" data-r="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Noch nicht</button>
+      <button class="ans yes" data-r="3">Wusste ich<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <p class="swipe-hint" id="swipeHint" hidden>Oder die Karte nach links oder rechts wischen.</p>
+    <div class="runctl" id="runCtl" hidden>
+      <button id="rPrev" aria-label="Vorherige Karte"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button id="rPlay" class="big" aria-label="Pause"><svg viewBox="0 0 24 24" fill="currentColor" id="rPlayIcon"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
+      <button id="rNext" aria-label="Nächste Karte"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    </div>
+  </section>
+
+  <section class="screen" id="done" hidden>
+    <div class="done-main">
+      <span class="eyebrow">Fertig</span>
+      <h1 id="doneTitle">Für heute alles wiederholt.</h1>
+      <p class="note" id="doneText"></p>
+    </div>
+    <button class="primary" id="homeBtn">Zur Übersicht</button>
+  </section>
+
+  <section class="screen" id="overview" hidden>
+    <div class="ov-head">
+      <button class="close" id="ovBack" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h1>Deine Karten</h1>
+    </div>
+    <div class="tiles">
+      <div class="tile"><b id="tOk">0</b><span><i class="dot ok"></i>Sitzt</span></div>
+      <div class="tile"><b id="tWeak">0</b><span><i class="dot weak"></i>Noch unsicher</span></div>
+      <div class="tile"><b id="tNew">0</b><span><i class="dot new"></i>Neu</span></div>
+    </div>
+    <div class="ov-list" id="ovList"></div>
+  </section>
+
+  <section class="screen" id="runSetup" hidden>
+    <div class="ov-head">
+      <button class="close" id="rsBack" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h1>Durchlauf zum Anhören</h1>
+    </div>
+    <div class="setup">
+      <div class="lab"><span>Pause vor der Antwort</span><b id="pFrontVal"></b></div>
+      <input type="range" id="pFront" min="1" max="15" step="1">
+      <div class="lab"><span>Pause vor der nächsten Karte</span><b id="pNextVal"></b></div>
+      <input type="range" id="pNext" min="1" max="10" step="1">
+      <div class="seg" id="runSet"><button data-set="due" class="on">Heute fällig</button><button data-set="all">Alle Karten</button></div>
+      <p class="note">Die Karten drehen sich von selbst. Antworten werden dabei nicht gespeichert, dein Lernstand bleibt gleich.</p>
+    </div>
+    <div class="home-main"></div>
+    <button class="primary" id="rsStart">Durchlauf starten</button>
+  </section>
+
+  <section class="screen" id="reset" hidden>
+    <div class="home-main">
+      <div class="confirm">
+        <h3>Heute zurücksetzen?</h3>
+        <p id="resetText">Alle Antworten von heute werden gelöscht. Die Karten stehen danach wieder so da wie heute früh.</p>
+        <div class="row"><button id="resetNo">Abbrechen</button><button class="go" id="resetYes">Zurücksetzen</button></div>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="scrim" id="scrim" hidden></div>
+<div class="menu" id="menu" hidden>
+  <button id="mRun">Durchlauf zum Anhören</button>
+  <button id="mOverview">Kartenübersicht</button>
+  <button id="mAuto">Automatisch vorlesen: aus</button>
+  <button id="mSync">Jetzt abgleichen</button>
+  <button class="danger" id="mReset">Heute zurücksetzen</button>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+  // ---------- FSRS-5 (Standardparameter, Zielbehaltensrate 90 %) ----------
+  const W = [0.40255, 1.18385, 3.173, 15.69105, 7.1949, 0.5345, 1.4604, 0.0046, 1.54575, 0.1192, 1.01925, 1.9395, 0.11, 0.29605, 2.2698, 0.2315, 2.9898, 0.51655, 0.6621];
+  const DECAY = -0.5, FACTOR = 19 / 81, DAY = 86400000, RELEARN_MS = 10 * 60000;
+  const clampD = d => Math.min(10, Math.max(1, d));
+  const D0 = g => clampD(W[4] - Math.exp(W[5] * (g - 1)) + 1);
+  const retr = (t, s) => Math.pow(1 + FACTOR * t / s, DECAY);
+  const nextD = (d, g) => clampD(W[7] * D0(4) + (1 - W[7]) * (d + (-W[6] * (g - 3)) * (10 - d) / 9));
+  const sRecall = (d, s, r, g) => s * (1 + Math.exp(W[8]) * (11 - d) * Math.pow(s, -W[9]) * (Math.exp(W[10] * (1 - r)) - 1) * (g === 2 ? W[15] : 1) * (g === 4 ? W[16] : 1));
+  const sForget = (d, s, r) => Math.min(s, W[11] * Math.pow(d, -W[12]) * (Math.pow(s + 1, W[13]) - 1) * Math.exp(W[14] * (1 - r)));
+  const sShort = (s, g) => s * Math.exp(W[17] * (g - 3 + W[18]));
+  const ivlDays = s => Math.min(365, Math.max(1, Math.round(s)));
+  function schedule(st, g, now) {
+    if (!st || !st.reps) {
+      const s = W[g - 1], d = D0(g);
+      return { s, d, due: g === 1 ? now + RELEARN_MS : now + ivlDays(s) * DAY, last: now, reps: 1, lapses: 0, lastRating: g };
+    }
+    const elapsed = Math.max(0, (now - st.last) / DAY);
+    const d = nextD(st.d, g);
+    let s;
+    if (elapsed < 1) s = sShort(st.s, g);
+    else { const r = retr(elapsed, st.s); s = g === 1 ? sForget(st.d, st.s, r) : sRecall(st.d, st.s, r, g); }
+    s = Math.max(0.1, s);
+    return { s, d, due: g === 1 ? now + RELEARN_MS : now + ivlDays(s) * DAY, last: now, reps: st.reps + 1, lapses: st.lapses + (g === 1 ? 1 : 0), lastRating: g };
+  }
+
+  // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
+  const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
+  const params = new URLSearchParams(location.search);
+  const store = {
+    get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch (_) { return f; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
+  };
+  let KEY = params.get("k") || store.get("key", "");
+  if (params.get("k")) store.set("key", KEY);
+  const cards = new Map(), states = new Map();
+  let loaded = false, pending = store.get("pending", []), syncing = false;
+
+  const $ = id => document.getElementById(id);
+  function applyServer(data) {
+    cards.clear();
+    (data.cards || []).forEach(c => cards.set(String(c.id), c));
+    // Die Tabelle ist die Quelle: Stand komplett übernehmen, nur noch nicht übertragene Antworten behalten.
+    const srv = data.state || {};
+    states.clear();
+    for (const id of Object.keys(srv)) states.set(id, srv[id]);
+    loaded = true;
+    store.set("cache", { cards: [...cards.values()], state: Object.fromEntries(states) });
+  }
+  function loadCache() {
+    const c = store.get("cache", null);
+    if (!c) return false;
+    c.cards.forEach(x => cards.set(String(x.id), x));
+    Object.entries(c.state || {}).forEach(([k, v]) => states.set(k, v));
+    pending.forEach(p => states.set(p.id, p.st));
+    loaded = true;
+    return true;
+  }
+  async function sync(extra) {
+    if (syncing || !KEY) return false;
+    syncing = true;
+    const sending = pending.slice();
+    try {
+      const res = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ k: KEY, reviews: sending }, extra || {})) });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "api");
+      pending = pending.slice(sending.length);
+      store.set("pending", pending);
+      applyServer(data);
+      pending.forEach(p => states.set(p.id, p.st));
+      setNet(false);
+      renderHome();
+      return true;
+    } catch (err) {
+      setNet(true, err && err.message === "key");
+      return false;
+    } finally { syncing = false; }
+  }
+  function setNet(off, keyError) {
+    const el = $("netNote");
+    if (!off) { el.hidden = true; return; }
+    el.textContent = keyError ? "Der Zugangsschlüssel fehlt. Öffne die App einmal über deinen persönlichen Link."
+      : (pending.length ? `Offline. ${pending.length} Antworten werden übertragen, sobald du online bist.` : "Offline. Du lernst mit dem zuletzt geladenen Stand.");
+    el.hidden = false;
+  }
+
+  // ---------- Hilfen ----------
+  const screens = ["home", "review", "done", "overview", "reset", "runSetup"];
+  const show = name => screens.forEach(s => { $(s).hidden = s !== name; });
+  let toastTimer;
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3500); }
+  const endOfToday = () => { const d = new Date(); d.setHours(23, 59, 59, 999); return d.getTime(); };
+  function dueLists(now) {
+    const due = [], fresh = [];
+    for (const [id] of cards) {
+      const st = states.get(id);
+      if (!st || !st.reps) fresh.push(id); else if (st.due <= now) due.push(id);
+    }
+    due.sort((a, b) => states.get(a).due - states.get(b).due);
+    fresh.sort((a, b) => { const x = cards.get(a), y = cards.get(b); return (x.stage || 9) - (y.stage || 9) || (x.order || 0) - (y.order || 0); });
+    return { due, fresh };
+  }
+  function fmtWhen(ts) {
+    const days = Math.round((new Date(ts).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / DAY);
+    if (days <= 0) return "heute"; if (days === 1) return "morgen"; if (days === 2) return "übermorgen";
+    return "in " + days + " Tagen";
+  }
+  function chip(text) { const s = document.createElement("span"); s.className = "chip"; s.textContent = text; return s; }
+
+  // ---------- Übersicht ----------
+  function renderHome() {
+    if (session.active || !loaded) return;
+    const { due, fresh } = dueLists(endOfToday());
+    const total = due.length + fresh.length;
+    $("dueBig").textContent = total;
+    if (!cards.size) {
+      $("dueText").textContent = "Noch keine Karten";
+      $("chips").replaceChildren();
+      $("homeNote").textContent = "Neue Karten kommen nach jeder Lernsession dazu."; $("homeNote").hidden = false;
+      $("startBtn").hidden = true; return;
+    }
+    $("dueText").textContent = total === 1 ? "Karte für heute" : "Karten für heute";
+    const chips = [];
+    if (fresh.length) chips.push(chip(fresh.length + " neu"));
+    if (due.length) chips.push(chip(due.length + " zum Wiederholen"));
+    chips.push(chip(cards.size + " insgesamt"));
+    $("chips").replaceChildren(...chips);
+    if (total) { $("homeNote").hidden = true; $("startBtn").hidden = false; }
+    else {
+      let next = Infinity;
+      for (const st of states.values()) if (st.reps && st.due > Date.now()) next = Math.min(next, st.due);
+      $("homeNote").textContent = next < Infinity ? "Alles erledigt. Die nächste Karte ist " + fmtWhen(next) + " dran." : "Alles erledigt.";
+      $("homeNote").hidden = false; $("startBtn").hidden = true;
+    }
+  }
+
+  // ---------- Abfrage ----------
+  const session = { active: false, queue: [], total: 0, done: 0, misses: 0, current: null, revealed: false, seenHint: store.get("seenHint", false) };
+  function startSession() {
+    const { due, fresh } = dueLists(endOfToday());
+    session.queue = [...due, ...fresh];
+    session.total = session.queue.length; session.done = 0; session.misses = 0; session.active = true;
+    unlockAudio();
+    show("review"); nextCard();
+    if (autoRead) prefetchAudio(session.queue.slice(0, 40));
+  }
+  function esc(t) { return String(t).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch])); }
+  function askHtml(t) { return esc(t).replace(/\*\*(.+?)\*\*/g, "<mark>$1</mark>"); }
+  // Schrift verkleinern, bis jedes Wort in die Breite passt; erst danach trennen.
+  function fit(el, max, min) {
+    el.classList.remove("broken");
+    let size = max; el.style.fontSize = size + "px";
+    while (el.scrollWidth > el.clientWidth + 1 && size > min) { size -= 1; el.style.fontSize = size + "px"; }
+    if (el.scrollWidth > el.clientWidth + 1) el.classList.add("broken");
+  }
+  function fitAll() {
+    fit($("cAsk"), 27, 19);
+    $("cAnswer").querySelectorAll(".term").forEach(el => fit(el, 28, 17));
+    $("cAnswer").querySelectorAll("li .t").forEach(el => fit(el, 20, 14));
+  }
+  function fillAnswer(c) {
+    const box = $("cAnswer"); box.replaceChildren();
+    const raw = String(c.a || "");
+    const parts = raw.split(";").map(s => s.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      const ol = document.createElement("ol");
+      parts.forEach((p, n) => {
+        const li = document.createElement("li");
+        const num = document.createElement("i"); num.textContent = n + 1;
+        const wrap = document.createElement("span");
+        const t = document.createElement("span"); t.className = "t fit";
+        const m = p.match(/^(.*?)\s*\((.+)\)$/);
+        t.textContent = m ? m[1] : p; wrap.append(t);
+        if (m) { const sm = document.createElement("small"); sm.textContent = m[2]; wrap.append(sm); }
+        li.append(num, wrap); ol.append(li);
+      });
+      box.append(ol);
+    } else {
+      const t = document.createElement("div"); t.className = "term fit"; t.textContent = raw.replace(/\.$/, ""); box.append(t);
+    }
+    if (c.note) { const n = document.createElement("div"); n.className = "anote"; n.textContent = c.note; box.append(n); }
+  }
+  function showCard(id) {
+    const c = cards.get(id);
+    session.current = id; session.revealed = false;
+    const card = $("card");
+    card.className = "card back-in"; card.style.transform = ""; resetStamps();
+    $("cType").textContent = (+c.stage === 1) ? "Aufzählen" : "Erkennen";
+    $("cAsk").innerHTML = askHtml(c.ask || c.q || "");
+    fillAnswer(c);
+    $("cAnswer").hidden = true; $("tapHint").hidden = false;
+    $("answers").hidden = true; $("swipeHint").hidden = true;
+    card.scrollTop = 0;
+    requestAnimationFrame(fitAll);
+  }
+  function nextCard() {
+    if (!session.queue.length) return finish();
+    const id = session.queue.shift();
+    if (!cards.get(id)) return nextCard();
+    showCard(id); updateProgress();
+    stopSpeech();
+    if (autoRead) setTimeout(() => speak("q"), 250);
+  }
+  function updateProgress() {
+    $("progressFill").style.width = (session.total ? Math.round(session.done / session.total * 100) : 0) + "%";
+    $("countText").textContent = session.done + " / " + session.total;
+  }
+  function reveal() {
+    if (run.active || session.revealed || !session.current) return;
+    session.revealed = true;
+    $("cAnswer").hidden = false; $("tapHint").hidden = true; $("answers").hidden = false;
+    $("swipeHint").hidden = session.seenHint;
+    requestAnimationFrame(fitAll);
+    if (autoRead) speak("a");
+  }
+  function answer(g) {
+    if (run.active || !session.revealed || !session.current) return;
+    if (!session.seenHint) { session.seenHint = true; store.set("seenHint", true); }
+    const id = session.current, now = Date.now();
+    const next = schedule(states.get(id), g, now);
+    states.set(id, next);
+    if (g === 1) { session.misses++; session.queue.splice(Math.min(3, session.queue.length), 0, id); }
+    else session.done++;
+    pending.push({ id, st: next, r: g, t: now }); store.set("pending", pending);
+    const c = store.get("cache", null); if (c) { c.state = c.state || {}; c.state[id] = next; store.set("cache", c); }
+    sync();
+    const card = $("card");
+    card.classList.remove("back-in", "snap");
+    card.style.transform = "";
+    card.classList.add(g === 1 ? "leave-left" : "leave-right");
+    session.current = null;
+    setTimeout(nextCard, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 230);
+  }
+  function finish() {
+    stopSpeech();
+    session.active = false; session.current = null;
+    $("doneTitle").textContent = "Für heute alles wiederholt.";
+    $("doneText").textContent = session.misses
+      ? `${session.total} Karten. ${session.misses}-mal "Noch nicht", diese Karten kommen bald wieder.`
+      : `${session.total} Karten, alle beim ersten Versuch gewusst.`;
+    show("done");
+  }
+
+  // ---------- Wischen ----------
+  const card = $("card");
+  const TH = 80;
+  let sx = 0, sy = 0, dx = 0, active = false, horiz = null, tapCandidate = false;
+  function resetStamps() { card.querySelectorAll(".stamp").forEach(s => s.style.opacity = 0); }
+  function begin(x, y) { sx = x; sy = y; dx = 0; active = true; horiz = null; tapCandidate = true; card.classList.remove("snap", "back-in"); }
+  function move(x, y, ev) {
+    if (!active || run.active) return;
+    dx = x - sx; const dy = y - sy;
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) tapCandidate = false;
+    if (horiz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horiz = Math.abs(dx) > Math.abs(dy);
+    if (!horiz) return;
+    if (ev && ev.cancelable) ev.preventDefault();
+    if (!session.revealed) return;
+    card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
+    const p = Math.min(1, Math.abs(dx) / TH);
+    card.querySelector(".stamp.yes").style.opacity = dx > 0 ? p : 0;
+    card.querySelector(".stamp.no").style.opacity = dx < 0 ? p : 0;
+  }
+  function end() {
+    if (!active) return; active = false;
+    if (tapCandidate) { reveal(); return; }
+    if (horiz && session.revealed && Math.abs(dx) > TH) { answer(dx > 0 ? 3 : 1); return; }
+    card.classList.add("snap"); card.style.transform = ""; resetStamps();
+  }
+  function cancel() { active = false; card.classList.add("snap"); card.style.transform = ""; resetStamps(); }
+  card.addEventListener("touchstart", e => { const t = e.touches[0]; begin(t.clientX, t.clientY); }, { passive: true });
+  card.addEventListener("touchmove", e => { const t = e.touches[0]; move(t.clientX, t.clientY, e); }, { passive: false });
+  card.addEventListener("touchend", e => { if (tapCandidate && e.cancelable) e.preventDefault(); end(); }, { passive: false });
+  card.addEventListener("touchcancel", cancel);
+  card.addEventListener("pointerdown", e => { if (e.pointerType === "mouse") begin(e.clientX, e.clientY); });
+  window.addEventListener("pointermove", e => { if (e.pointerType === "mouse") move(e.clientX, e.clientY, e); });
+  window.addEventListener("pointerup", e => { if (e.pointerType === "mouse") end(); });
+
+  // ---------- Menü ----------
+  function openMenu(on) { $("menu").hidden = !on; $("scrim").hidden = !on; }
+  $("menuBtn").addEventListener("click", () => openMenu($("menu").hidden));
+  $("scrim").addEventListener("click", () => openMenu(false));
+  $("mSync").addEventListener("click", async () => { openMenu(false); toast("Wird abgeglichen …"); const ok = await sync(); toast(ok ? "Auf dem neuesten Stand." : "Gerade offline. Versuch es gleich noch einmal."); });
+  $("mOverview").addEventListener("click", () => { openMenu(false); renderOverview(); show("overview"); });
+  $("ovBack").addEventListener("click", () => { show("home"); renderHome(); });
+  $("mReset").addEventListener("click", () => {
+    openMenu(false);
+    const today = new Date().toDateString();
+    const n = new Set();
+    for (const [id, st] of states) if (st.last && new Date(st.last).toDateString() === today) n.add(id);
+    $("resetText").textContent = n.size
+      ? `Du hast heute ${n.size} ${n.size === 1 ? "Karte" : "Karten"} beantwortet. Diese Antworten werden gelöscht, die Karten stehen danach wieder so da wie heute früh.`
+      : "Heute gibt es noch keine Antworten. Zurücksetzen ändert nichts.";
+    show("reset");
+  });
+  $("resetNo").addEventListener("click", () => { show("home"); renderHome(); });
+  $("resetYes").addEventListener("click", async () => {
+    const today = new Date().toDateString();
+    pending = pending.filter(p => new Date(p.t).toDateString() !== today);
+    store.set("pending", pending);
+    $("resetYes").disabled = true;
+    const ok = await sync({ reset: "today" });
+    $("resetYes").disabled = false;
+    show("home"); renderHome();
+    toast(ok ? "Heute wurde zurückgesetzt." : "Zurücksetzen geht nur mit Internet. Versuch es gleich noch einmal.");
+  });
+
+  // ---------- Vorlesen ----------
+  // Wiedergabe über ein Audio-Element, damit Kopfhörer- und Sperrbildschirm-Tasten funktionieren.
+  const player = new Audio(); player.preload = "auto";
+  let autoRead = store.get("autoRead", false), speakToken = 0, curUrl = null, endResolve = null, unlocked = false;
+  const SILENT = (() => {
+    const n = 800, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    const w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+    w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 16000, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+    return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+  })();
+  function unlockAudio() {
+    if (unlocked) return; unlocked = true;
+    try { player.src = SILENT; const p = player.play(); if (p) p.catch(() => { unlocked = false; }); } catch (_) { unlocked = false; }
+  }
+  function hashText(t) { let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return (h >>> 0).toString(16); }
+  function speechKey(c, part) { return "/audio/v2/" + c.id + "-" + part + "-" + hashText(part === "q" ? String(c.ask || c.q || "") : String(c.a || "")); }
+  const inflight = new Map();
+  function getAudio(c, part) {
+    const key = speechKey(c, part);
+    if (!inflight.has(key)) inflight.set(key, loadAudio(c, part, key).finally(() => inflight.delete(key)));
+    return inflight.get(key);
+  }
+  async function loadAudio(c, part, key) {
+    let cache = null;
+    try { cache = await caches.open("m1-audio"); const hit = await cache.match(key); if (hit) return await hit.arrayBuffer(); } catch (_) {}
+    const res = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ k: KEY, audio: c.id, part }) });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "audio");
+    const bin = Uint8Array.from(atob(data.b64), ch => ch.charCodeAt(0));
+    try { if (cache) await cache.put(key, new Response(bin, { headers: { "Content-Type": "audio/mpeg" } })); } catch (_) {}
+    return bin.buffer;
+  }
+  function stopSpeech() {
+    speakToken++;
+    try { player.pause(); } catch (_) {}
+    if (endResolve) { const r = endResolve; endResolve = null; r(); }
+    $("speakBtn").classList.remove("on", "busy");
+  }
+  function playBuffer(buf) {
+    return new Promise((resolve, reject) => {
+      if (curUrl) URL.revokeObjectURL(curUrl);
+      curUrl = URL.createObjectURL(new Blob([buf], { type: "audio/mpeg" }));
+      endResolve = resolve;
+      player.onended = () => { if (endResolve === resolve) endResolve = null; resolve(); };
+      player.onerror = () => reject(new Error("play"));
+      player.src = curUrl;
+      const p = player.play(); if (p) p.catch(reject);
+    });
+  }
+  function speakError(err) {
+    const m = String(err && err.message || "");
+    toast(m.includes("nokey") ? "Vorlesen ist noch nicht eingerichtet." : (navigator.onLine ? "Vorlesen hat gerade nicht geklappt." : "Diese Karte ist offline noch nicht vertont."));
+  }
+  async function speakCard(c, part) {
+    stopSpeech(); const my = speakToken;
+    $("speakBtn").classList.add("busy");
+    try {
+      const buf = await getAudio(c, part);
+      if (my !== speakToken) return false;
+      $("speakBtn").classList.remove("busy"); $("speakBtn").classList.add("on");
+      await playBuffer(buf);
+      if (my === speakToken) $("speakBtn").classList.remove("on");
+      return my === speakToken;
+    } catch (err) {
+      if (my === speakToken) { $("speakBtn").classList.remove("busy", "on"); speakError(err); }
+      return false;
+    }
+  }
+  function speak(part) { const c = session.current && cards.get(session.current); if (c) speakCard(c, part); }
+  async function prefetchAudio(ids) {
+    for (const id of ids) {
+      const c = cards.get(id); if (!c) continue;
+      for (const part of ["q", "a"]) { try { await getAudio(c, part); } catch (_) { return; } }
+    }
+  }
+  function setAutoLabel() { $("mAuto").textContent = "Automatisch vorlesen: " + (autoRead ? "an" : "aus"); }
+  setAutoLabel();
+  $("mAuto").addEventListener("click", () => { autoRead = !autoRead; store.set("autoRead", autoRead); setAutoLabel(); openMenu(false); unlockAudio(); toast(autoRead ? "Karten werden automatisch vorgelesen." : "Automatisches Vorlesen ist aus."); });
+  $("speakBtn").addEventListener("click", () => {
+    unlockAudio();
+    if (run.active) { run.paused ? runResume() : runPause(); return; }
+    if ($("speakBtn").classList.contains("on")) { stopSpeech(); return; }
+    speak(session.revealed ? "a" : "q");
+  });
+
+  // ---------- Durchlauf ----------
+  const run = { active: false, paused: false, list: [], idx: 0, gen: 0, set: "due",
+    pFront: store.get("pFront", 4), pNext: store.get("pNext", 2) };
+  function setRunLabels() {
+    $("pFront").value = run.pFront; $("pNext").value = run.pNext;
+    $("pFrontVal").textContent = run.pFront + " s"; $("pNextVal").textContent = run.pNext + " s";
+  }
+  $("pFront").addEventListener("input", e => { run.pFront = +e.target.value; store.set("pFront", run.pFront); setRunLabels(); });
+  $("pNext").addEventListener("input", e => { run.pNext = +e.target.value; store.set("pNext", run.pNext); setRunLabels(); });
+  $("runSet").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    run.set = b.dataset.set; $("runSet").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+  });
+  $("mRun").addEventListener("click", () => { openMenu(false); setRunLabels(); show("runSetup"); });
+  $("rsBack").addEventListener("click", () => { show("home"); renderHome(); });
+  $("rsStart").addEventListener("click", () => {
+    unlockAudio();
+    let list;
+    if (run.set === "due") { const { due, fresh } = dueLists(endOfToday()); list = [...due, ...fresh]; }
+    if (!list || !list.length) {
+      list = [...cards.keys()].sort((a, b) => { const x = cards.get(a), y = cards.get(b); return (x.stage || 9) - (y.stage || 9) || (x.order || 0) - (y.order || 0); });
+      if (run.set === "due") toast("Heute ist nichts fällig, du hörst alle Karten.");
+    }
+    if (!list.length) return;
+    run.list = list; run.idx = 0; run.active = true; run.paused = false;
+    session.active = true;
+    $("runCtl").hidden = false; setPlayIcon();
+    show("review");
+    prefetchAudio(list.slice(0, 40));
+    runLoop();
+  });
+  function sleepRun(ms, gen) {
+    return new Promise(res => {
+      let left = ms;
+      const t = setInterval(() => {
+        if (gen !== run.gen || !run.active) { clearInterval(t); res(false); return; }
+        if (!run.paused) left -= 100;
+        if (left <= 0) { clearInterval(t); res(true); }
+      }, 100);
+    });
+  }
+  function waitUnpaused(gen) {
+    return new Promise(res => {
+      const t = setInterval(() => {
+        if (gen !== run.gen || !run.active) { clearInterval(t); res(false); }
+        else if (!run.paused) { clearInterval(t); res(true); }
+      }, 150);
+      if (!run.paused) { clearInterval(t); res(true); }
+    });
+  }
+  function updateRunProgress() {
+    $("progressFill").style.width = Math.round((run.idx + 1) / run.list.length * 100) + "%";
+    $("countText").textContent = (run.idx + 1) + " / " + run.list.length;
+  }
+  function revealRun() {
+    session.revealed = true;
+    $("cAnswer").hidden = false; $("tapHint").hidden = true;
+    requestAnimationFrame(fitAll);
+  }
+  function setMedia(c) {
+    if (!("mediaSession" in navigator)) return;
+    try { navigator.mediaSession.metadata = new MediaMetadata({ title: String(c.ask || c.q || "").replace(/\*\*/g, ""), artist: "M1 Karten" }); } catch (_) {}
+  }
+  async function runLoop() {
+    const gen = ++run.gen;
+    while (run.active && gen === run.gen && run.idx < run.list.length) {
+      const c = cards.get(run.list[run.idx]);
+      if (!c) { run.idx++; continue; }
+      showCard(c.id); $("tapHint").hidden = true; updateRunProgress(); setMedia(c);
+      if (!await waitUnpaused(gen)) return;
+      await speakCard(c, "q");
+      if (gen !== run.gen) return;
+      if (!await sleepRun(run.pFront * 1000, gen)) return;
+      revealRun();
+      if (!await waitUnpaused(gen)) return;
+      await speakCard(c, "a");
+      if (gen !== run.gen) return;
+      if (!await sleepRun(run.pNext * 1000, gen)) return;
+      run.idx++;
+    }
+    if (run.active && gen === run.gen) {
+      endRun(false);
+      $("doneTitle").textContent = "Durchlauf beendet.";
+      $("doneText").textContent = run.list.length + " Karten angehört. Dein Lernstand ist unverändert.";
+      show("done");
+    }
+  }
+  function setPlayIcon() {
+    $("rPlayIcon").innerHTML = run.paused ? '<path d="M7 4v16l13-8z"/>' : '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>';
+    $("rPlay").setAttribute("aria-label", run.paused ? "Weiter" : "Pause");
+  }
+  function runPause() { if (!run.active || run.paused) return; run.paused = true; try { player.pause(); } catch (_) {} setPlayIcon(); }
+  function runResume() {
+    if (!run.active || !run.paused) return;
+    run.paused = false; setPlayIcon();
+    if (endResolve && player.src && !player.ended) { const p = player.play(); if (p) p.catch(() => {}); }
+  }
+  function runJump(d) {
+    if (!run.active) return;
+    run.idx = Math.max(0, Math.min(run.list.length - 1, run.idx + d));
+    run.paused = false; setPlayIcon();
+    stopSpeech(); runLoop();
+  }
+  function endRun(toHome) {
+    if (!run.active) return;
+    run.active = false; run.paused = false; run.gen++;
+    stopSpeech();
+    $("runCtl").hidden = true; session.active = false;
+    if (toHome) { show("home"); renderHome(); }
+  }
+  $("rPlay").addEventListener("click", () => { unlockAudio(); run.paused ? runResume() : runPause(); });
+  $("rNext").addEventListener("click", () => runJump(1));
+  $("rPrev").addEventListener("click", () => runJump(-1));
+  if ("mediaSession" in navigator) {
+    const h = (a, f) => { try { navigator.mediaSession.setActionHandler(a, f); } catch (_) {} };
+    h("play", () => { if (run.active) runResume(); else { const p = player.play(); if (p) p.catch(() => {}); } });
+    h("pause", () => { if (run.active) runPause(); else player.pause(); });
+    h("nexttrack", () => runJump(1));
+    h("previoustrack", () => runJump(-1));
+  }
+
+  // ---------- Kartenübersicht ----------
+  function statusOf(id) {
+    const st = states.get(id);
+    if (!st || !st.reps) return "new";
+    return st.lastRating === 1 ? "weak" : "ok";
+  }
+  function termOf(c) { const a = String(c.a || "").split(";").map(x => x.trim().replace(/\s*\(.+\)$/, "")).filter(Boolean); return a.length > 1 ? a.join(", ") : (a[0] || "").replace(/\.$/, ""); }
+  function renderOverview() {
+    const ids = [...cards.keys()];
+    const cnt = { ok: 0, weak: 0, new: 0 };
+    ids.forEach(id => cnt[statusOf(id)]++);
+    $("tOk").textContent = cnt.ok; $("tWeak").textContent = cnt.weak; $("tNew").textContent = cnt.new;
+    const rank = { weak: 0, ok: 1, new: 2 };
+    ids.sort((a, b) => rank[statusOf(a)] - rank[statusOf(b)] || ((states.get(a) || {}).due || 0) - ((states.get(b) || {}).due || 0));
+    const list = $("ovList"); list.replaceChildren();
+    if (!ids.length) { const e = document.createElement("div"); e.className = "empty"; e.textContent = "Noch keine Karten."; list.append(e); return; }
+    ids.forEach(id => {
+      const c = cards.get(id), st = states.get(id), stt = statusOf(id);
+      const row = document.createElement("button"); row.className = "ov-row";
+      const main = document.createElement("div"); main.className = "ov-main";
+      const dot = document.createElement("i"); dot.className = "dot " + stt;
+      const term = document.createElement("span"); term.className = "ov-term"; const askText = String(c.ask || c.q || "").replace(/\*\*/g, ""); const isList = +c.stage === 1;
+      term.textContent = isList ? askText : termOf(c);
+      const when = document.createElement("span"); when.className = "ov-when";
+      when.textContent = stt === "new" ? "neu" : (st.due <= Date.now() ? "fällig" : fmtWhen(st.due));
+      main.append(dot, term, when);
+      if (stt !== "new") {
+        const bar = document.createElement("div"); bar.className = "ov-bar";
+        const fill = document.createElement("i");
+        fill.style.width = Math.round(Math.min(1, Math.log(1 + st.s) / Math.log(1 + 60)) * 100) + "%";
+        bar.append(fill); main.append(bar);
+      }
+      const q = document.createElement("div"); q.className = "ov-q"; q.textContent = isList ? termOf(c) : askText;
+      main.append(q);
+      row.append(main);
+      row.addEventListener("click", () => row.classList.toggle("open"));
+      list.append(row);
+    });
+  }
+
+  // ---------- Bedienung ----------
+  $("startBtn").addEventListener("click", startSession);
+  $("answers").addEventListener("click", e => { const b = e.target.closest(".ans"); if (b) answer(+b.dataset.r); });
+  $("closeBtn").addEventListener("click", () => { endRun(false); stopSpeech(); session.active = false; show("home"); renderHome(); });
+  $("homeBtn").addEventListener("click", () => { show("home"); renderHome(); });
+  document.addEventListener("keydown", e => {
+    if ($("review").hidden) return;
+    if ((e.key === " " || e.key === "Enter") && !session.revealed) { e.preventDefault(); reveal(); }
+    else if (session.revealed && (e.key === "ArrowRight" || e.key === "ArrowLeft")) answer(e.key === "ArrowRight" ? 3 : 1);
+  });
+
+  // ---------- Start ----------
+  if (loadCache()) renderHome();
+  if (!KEY) {
+    $("dueText").textContent = "Zugang fehlt";
+    $("homeNote").textContent = "Öffne die App einmal über deinen persönlichen Link, danach geht es von hier."; $("homeNote").hidden = false;
+  }
+  sync();
+  window.addEventListener("online", sync);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) sync(); });
+  window.addEventListener("resize", () => { if (!$("review").hidden) fitAll(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!$("review").hidden) fitAll(); });
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>
