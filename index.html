@@ -340,6 +340,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   <button id="mFeedback">Feedback zur App</button>
   <button id="mSync">Jetzt abgleichen</button>
   <button class="danger" id="mReset">Heute zurücksetzen</button>
+  <span id="appVer" style="font-size:12px;color:var(--muted);padding:6px 14px 4px"></span>
 </div>
 <div class="sheet-scrim" id="fbScrim" hidden></div>
 <div class="sheet" id="fbSheet" role="dialog" aria-labelledby="fbTitle" hidden>
@@ -383,6 +384,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
+  const APP_V = "28.10. 20:40";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -508,7 +510,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   function startSession() {
     const { due, fresh } = dueLists(endOfToday());
     session.queue = [...due, ...fresh];
-    session.total = session.queue.length; session.done = 0; session.misses = 0; session.active = true; session.missCount = {}; session.written = {};
+    session.total = session.queue.length; session.done = 0; session.misses = 0; session.active = true;
     unlockAudio();
     show("review"); nextCard();
     if (autoRead) prefetchAudio(session.queue.slice(0, 40));
@@ -593,8 +595,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     let mustWrite = false;
     if (g === 1) {
       session.misses++; session.queue.splice(Math.min(3, session.queue.length), 0, id);
-      session.missCount[id] = (session.missCount[id] || 0) + 1;
-      mustWrite = session.missCount[id] >= 2 && !session.written[id];
+      const md = missDay(); md.counts[id] = (md.counts[id] || 0) + 1; store.set("missDay", md);
+      mustWrite = md.counts[id] >= 2 && !md.written[id];
     }
     else session.done++;
     pending.push({ id, st: next, r: g, t: now }); store.set("pending", pending);
@@ -621,9 +623,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   // Nur die gefragten Begriffe, nie die Zusätze in Klammern oder in der Spalte note.
   function termsOf(c) { return String(c.a || "").split(";").map(x => x.trim().replace(/\s*\(.+\)$/, "").replace(/\.$/, "")).filter(Boolean); }
   const normW = t => String(t).toLowerCase().normalize("NFC").replace(/[\s\-–]+/g, " ").replace(/[.,;:]/g, "").trim();
+  function missDay() {
+    const today = new Date().toDateString();
+    const md = store.get("missDay", null);
+    return md && md.day === today ? md : { day: today, counts: {}, written: {} };
+  }
   function openWrite(id) {
     const c = cards.get(id); if (!c) return nextCard();
-    session.written[id] = true;
+    const md = missDay(); md.written[id] = true; store.set("missDay", md);
     stopSpeech();
     $("wAsk").innerHTML = askHtml(c.ask || c.q || "").replace(/<\/?mark>/g, "");
     const rows = $("wRows"); rows.replaceChildren();
@@ -1082,7 +1089,17 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
   sync();
   window.addEventListener("online", sync);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) sync(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { sync(); checkUpdate(); } });
+  async function checkUpdate() {
+    if (session.active || run.active) return;
+    try {
+      const html = await (await fetch("./index.html?v=" + Date.now(), { cache: "no-store" })).text();
+      const m = html.match(/const APP_V = "([^"]+)"/);
+      if (m && m[1] !== APP_V && store.get("reloadedFor", "") !== m[1]) { store.set("reloadedFor", m[1]); location.reload(); }
+    } catch (_) {}
+  }
+  $("appVer").textContent = "Version " + APP_V;
+  checkUpdate();
   window.addEventListener("resize", () => { if (!$("review").hidden) fitAll(); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!$("review").hidden) fitAll(); });
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

@@ -1,5 +1,5 @@
 // Offline-Speicher fuer die App-Huelle. Daten laufen nie ueber diesen Cache.
-const CACHE = "m1karten-v14";
+const CACHE = "m1karten-v15";
 const SHELL = ["./", "./index.html", "./icon-180.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -13,7 +13,7 @@ self.addEventListener("fetch", e => {
   if (url.origin === location.origin) {
     // Netz zuerst, damit Updates ankommen; offline aus dem Cache
     e.respondWith(
-      fetch(e.request).then(r => {
+      fetch(e.request, { cache: "no-store" }).then(r => {
         const copy = r.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));
         return r;
