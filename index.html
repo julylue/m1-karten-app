@@ -271,7 +271,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   <section class="screen" id="write" hidden>
     <div class="topline"><span class="eyebrow">Einmal schreiben</span></div>
     <div class="write-main">
-      <p class="note">Diese Karte war heute schon zweimal noch nicht da. Schreib den Begriff einmal ab.</p>
+      <p class="note" id="wNote">Zweimal "Noch nicht" bei dieser Karte. Schreib den Begriff einmal.</p>
       <div class="write-card">
         <p class="wq" id="wAsk"></p>
         <div id="wRows" style="display:grid; gap:14px"></div>
@@ -628,6 +628,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     $("wAsk").innerHTML = askHtml(c.ask || c.q || "").replace(/<\/?mark>/g, "");
     const rows = $("wRows"); rows.replaceChildren();
     const terms = termsOf(c);
+    $("wNote").textContent = terms.length > 1 ? 'Zweimal "Noch nicht" bei dieser Karte. Schreib die Begriffe einmal.' : 'Zweimal "Noch nicht" bei dieser Karte. Schreib den Begriff einmal.';
     terms.forEach(term => {
       const row = document.createElement("div"); row.className = "wrow";
       const t = document.createElement("div"); t.className = "wt"; t.textContent = term;
