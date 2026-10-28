@@ -102,7 +102,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .answer li > i { font-style: normal; width: 28px; height: 28px; border-radius: 50%; background: var(--num-bg); color: var(--term); font-weight: 700; font-size: 14px; display: grid; place-items: center; }
 .answer li .t { display: block; font-size: 20px; font-weight: 600; line-height: 1.3; min-width: 0; padding-top: 1px; }
 .answer li small { display: block; font-weight: 400; font-size: 14px; color: var(--sub); margin-top: 1px; }
-.answer .anote { margin-top: 10px; font-size: 15px; color: var(--sub); }
+.answer .anote { margin-top: 6px; font-size: 14px; line-height: 1.4; color: var(--sub); }
 .fit { white-space: normal; overflow-wrap: normal; }
 .fit.broken { overflow-wrap: anywhere; hyphens: auto; }
 
@@ -192,6 +192,23 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .sheet .row .go { background: var(--yes-bg); color: var(--yes-ink); }
 .sheet .row .go:disabled { opacity: .45; }
 .sheet-scrim { position: fixed; inset: 0; z-index: 25; background: rgba(0,0,0,.35); }
+/* Einmal schreiben */
+.write-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.write-card { background: var(--card); border-radius: 26px; box-shadow: var(--shadow); padding: 24px; display: grid; gap: 16px; }
+.write-card .wq { font-size: 18px; font-weight: 600; line-height: 1.35; margin: 0; color: var(--muted); }
+.wrow { display: grid; gap: 6px; }
+.wrow .wt { font-size: 22px; font-weight: 800; color: var(--term); line-height: 1.2; overflow-wrap: anywhere; }
+.wrow .wbox { position: relative; }
+.wrow input { width: 100%; font: inherit; font-size: 18px; padding: 12px 44px 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.wrow input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.wrow .ok { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; color: var(--term); opacity: 0; transition: opacity .15s; }
+.wrow.done .ok { opacity: 1; }
+.wrow.done input { border-color: var(--term); }
+.skip { align-self: center; font-size: 14px; color: var(--muted); padding: 6px 10px; text-decoration: underline; text-underline-offset: 3px; }
+.primary:disabled { opacity: .45; }
+.sheet .gen-only { display: none; }
+.sheet.general .card-only { display: none; }
+.sheet.general .gen-only { display: block; }
 @media (prefers-reduced-motion: reduce) { *, .card { transition: none !important; animation: none !important; } }
 </style>
 </head>
@@ -251,6 +268,19 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     </div>
   </section>
 
+  <section class="screen" id="write" hidden>
+    <div class="topline"><span class="eyebrow">Einmal schreiben</span></div>
+    <div class="write-main">
+      <p class="note">Diese Karte war heute schon zweimal noch nicht da. Schreib den Begriff einmal ab.</p>
+      <div class="write-card">
+        <p class="wq" id="wAsk"></p>
+        <div id="wRows" style="display:grid; gap:14px"></div>
+      </div>
+      <button class="skip" id="wSkip">Überspringen</button>
+    </div>
+    <button class="primary" id="wNext" disabled>Weiter</button>
+  </section>
+
   <section class="screen" id="done" hidden>
     <div class="done-main">
       <span class="eyebrow">Fertig</span>
@@ -307,16 +337,19 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   <button id="mAuto">Automatisch vorlesen: aus</button>
   <button id="mShuffle">Mischmodus: aus</button>
   <button id="mOffline">Für offline laden</button>
+  <button id="mFeedback">Feedback zur App</button>
   <button id="mSync">Jetzt abgleichen</button>
   <button class="danger" id="mReset">Heute zurücksetzen</button>
 </div>
 <div class="sheet-scrim" id="fbScrim" hidden></div>
 <div class="sheet" id="fbSheet" role="dialog" aria-labelledby="fbTitle" hidden>
-  <h3 id="fbTitle">Was stimmt mit der Karte nicht?</h3>
-  <p>Die Karte wird pausiert, bis Claude sie überarbeitet hat.</p>
-  <button class="opt" data-reason="unverständlich">Frage unverständlich</button>
-  <button class="opt" data-reason="Antwort zu voll">Antwort zu voll</button>
-  <button class="opt" data-reason="sonstiges">Sonstiges</button>
+  <h3 id="fbTitle" class="card-only">Was stimmt mit der Karte nicht?</h3>
+  <h3 class="gen-only">Feedback zur App</h3>
+  <p class="card-only">Die Karte wird pausiert, bis Claude sie überarbeitet hat.</p>
+  <p class="gen-only">Gilt für die App oder alle Karten, nicht für eine bestimmte Karte. Claude liest es vor der nächsten Session.</p>
+  <button class="opt card-only" data-reason="unverständlich">Frage unverständlich</button>
+  <button class="opt card-only" data-reason="Antwort zu voll">Antwort zu voll</button>
+  <button class="opt card-only" data-reason="sonstiges">Sonstiges</button>
   <textarea id="fbText" placeholder="Optional: was genau? (Diktieren geht auch)"></textarea>
   <div class="row"><button id="fbCancel">Abbrechen</button><button class="go" id="fbSend" disabled>Melden</button></div>
 </div>
@@ -362,7 +395,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   let loaded = false, pending = store.get("pending", []), syncing = false;
   // Gemeldete Karten, die noch nicht übertragen sind. Danach liefert die Tabelle sie gar nicht mehr aus, bis Claude sie überarbeitet hat.
   let fbPending = store.get("fbPending", []);
-  const isPaused = id => fbPending.some(f => f.id === id);
+  const isPaused = id => fbPending.some(f => f.id === id && f.reason !== "allgemein");
 
   const $ = id => document.getElementById(id);
   function applyServer(data) {
@@ -416,7 +449,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Hilfen ----------
-  const screens = ["home", "review", "done", "overview", "reset", "runSetup"];
+  const screens = ["home", "review", "done", "overview", "reset", "runSetup", "write"];
   const show = name => screens.forEach(s => { $(s).hidden = s !== name; });
   let toastTimer;
   function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3500); }
@@ -475,7 +508,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   function startSession() {
     const { due, fresh } = dueLists(endOfToday());
     session.queue = [...due, ...fresh];
-    session.total = session.queue.length; session.done = 0; session.misses = 0; session.active = true;
+    session.total = session.queue.length; session.done = 0; session.misses = 0; session.active = true; session.missCount = {}; session.written = {};
     unlockAudio();
     show("review"); nextCard();
     if (autoRead) prefetchAudio(session.queue.slice(0, 40));
@@ -512,7 +545,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       });
       box.append(ol);
     } else {
-      const t = document.createElement("div"); t.className = "term fit"; t.textContent = raw.replace(/\.$/, ""); box.append(t);
+      const m = raw.match(/^(.*?)\s*\((.+)\)$/);
+      const t = document.createElement("div"); t.className = "term fit"; t.textContent = (m ? m[1] : raw).replace(/\.$/, ""); box.append(t);
+      if (m) { const n = document.createElement("div"); n.className = "anote"; n.textContent = m[2]; box.append(n); }
     }
     if (c.note) { const n = document.createElement("div"); n.className = "anote"; n.textContent = c.note; box.append(n); }
   }
@@ -555,7 +590,12 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     const id = session.current, now = Date.now();
     const next = schedule(states.get(id), g, now);
     states.set(id, next);
-    if (g === 1) { session.misses++; session.queue.splice(Math.min(3, session.queue.length), 0, id); }
+    let mustWrite = false;
+    if (g === 1) {
+      session.misses++; session.queue.splice(Math.min(3, session.queue.length), 0, id);
+      session.missCount[id] = (session.missCount[id] || 0) + 1;
+      mustWrite = session.missCount[id] >= 2 && !session.written[id];
+    }
     else session.done++;
     pending.push({ id, st: next, r: g, t: now }); store.set("pending", pending);
     const c = store.get("cache", null); if (c) { c.state = c.state || {}; c.state[id] = next; store.set("cache", c); }
@@ -565,7 +605,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     card.style.transform = "";
     paintSwipe(g === 1 ? -TH : TH); card.classList.add(g === 1 ? "leave-left" : "leave-right");
     session.current = null;
-    setTimeout(nextCard, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 230);
+    setTimeout(() => mustWrite ? openWrite(id) : nextCard(), matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 230);
   }
   function finish() {
     stopSpeech();
@@ -576,6 +616,43 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       : `${session.total} Karten, alle beim ersten Versuch gewusst.`;
     show("done");
   }
+
+  // ---------- Einmal schreiben ----------
+  // Nur die gefragten Begriffe, nie die Zusätze in Klammern oder in der Spalte note.
+  function termsOf(c) { return String(c.a || "").split(";").map(x => x.trim().replace(/\s*\(.+\)$/, "").replace(/\.$/, "")).filter(Boolean); }
+  const normW = t => String(t).toLowerCase().normalize("NFC").replace(/[\s\-–]+/g, " ").replace(/[.,;:]/g, "").trim();
+  function openWrite(id) {
+    const c = cards.get(id); if (!c) return nextCard();
+    session.written[id] = true;
+    stopSpeech();
+    $("wAsk").innerHTML = askHtml(c.ask || c.q || "").replace(/<\/?mark>/g, "");
+    const rows = $("wRows"); rows.replaceChildren();
+    const terms = termsOf(c);
+    terms.forEach(term => {
+      const row = document.createElement("div"); row.className = "wrow";
+      const t = document.createElement("div"); t.className = "wt"; t.textContent = term;
+      const box = document.createElement("div"); box.className = "wbox";
+      const inp = document.createElement("input");
+      inp.type = "text"; inp.autocomplete = "off"; inp.spellcheck = false;
+      inp.setAttribute("autocapitalize", "off"); inp.setAttribute("autocorrect", "off");
+      inp.setAttribute("aria-label", "Begriff schreiben");
+      const ok = document.createElement("span"); ok.className = "ok";
+      ok.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+      inp.addEventListener("input", () => {
+        row.classList.toggle("done", normW(inp.value) === normW(term));
+        const all = [...rows.querySelectorAll(".wrow")].every(r => r.classList.contains("done"));
+        $("wNext").disabled = !all;
+        if (row.classList.contains("done")) { const nx = [...rows.querySelectorAll(".wrow:not(.done) input")][0]; if (nx) nx.focus(); }
+      });
+      box.append(inp, ok); row.append(t, box); rows.append(row);
+    });
+    $("wNext").disabled = true;
+    show("write");
+    const first = rows.querySelector("input"); if (first) setTimeout(() => first.focus(), 50);
+  }
+  function closeWrite() { if (document.activeElement) document.activeElement.blur(); show("review"); nextCard(); }
+  $("wNext").addEventListener("click", closeWrite);
+  $("wSkip").addEventListener("click", closeWrite);
 
   // ---------- Wischen ----------
   const card = $("card");
@@ -920,10 +997,22 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Karte melden ----------
-  const fb = { id: null, reason: "", wasPaused: false };
+  const fb = { id: null, reason: "", wasPaused: false, general: false };
+  function openGeneralFeedback() {
+    openMenu(false);
+    fb.id = null; fb.reason = "allgemein"; fb.general = true; fb.wasPaused = false;
+    $("fbSheet").classList.add("general");
+    $("fbText").value = ""; $("fbText").placeholder = "Was möchtest du loswerden? (Diktieren geht auch)"; $("fbSend").textContent = "Senden"; $("fbSend").disabled = true;
+    $("fbSheet").hidden = false; $("fbScrim").hidden = false;
+    setTimeout(() => $("fbText").focus(), 50);
+  }
+  $("mFeedback").addEventListener("click", openGeneralFeedback);
+  $("fbText").addEventListener("input", () => { if (fb.general) $("fbSend").disabled = !$("fbText").value.trim(); });
   function openFeedback() {
     const id = run.active ? run.list[run.idx] : session.current;
     if (!id || !cards.get(id)) return;
+    fb.general = false; $("fbSheet").classList.remove("general");
+    $("fbText").placeholder = "Optional: was genau? (Diktieren geht auch)"; $("fbSend").textContent = "Melden";
     fb.id = id; fb.reason = ""; fb.wasPaused = run.active && run.paused;
     if (run.active) runPause(); else stopSpeech();
     $("fbSheet").querySelectorAll(".opt").forEach(b => b.classList.remove("on"));
@@ -933,7 +1022,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   function closeFeedback(resume) {
     $("fbSheet").hidden = true; $("fbScrim").hidden = true;
     if (resume && run.active && !fb.wasPaused) runResume();
-    fb.id = null;
+    fb.id = null; fb.general = false;
   }
   $("fbSheet").addEventListener("click", e => {
     const b = e.target.closest(".opt"); if (!b) return;
@@ -944,6 +1033,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   $("fbCancel").addEventListener("click", () => closeFeedback(true));
   $("fbScrim").addEventListener("click", () => closeFeedback(true));
   $("fbSend").addEventListener("click", () => {
+    if (fb.general) {
+      const text = $("fbText").value.trim(); if (!text) return;
+      fbPending.push({ id: "allgemein", reason: "allgemein", text, t: Date.now() });
+      store.set("fbPending", fbPending);
+      closeFeedback(false); $("fbSheet").classList.remove("general");
+      toast("Danke. Claude liest es vor der nächsten Session.");
+      sync(); return;
+    }
     const id = fb.id; if (!id || !fb.reason) return;
     fbPending.push({ id, reason: fb.reason, text: $("fbText").value.trim(), t: Date.now() });
     store.set("fbPending", fbPending);
