@@ -1,5 +1,5 @@
 // Offline-Speicher fuer die App-Huelle. Daten laufen nie ueber diesen Cache.
-const CACHE = "m1karten-v11";
+const CACHE = "m1karten-v12";
 const SHELL = ["./", "./index.html", "./icon-180.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

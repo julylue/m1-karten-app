@@ -175,6 +175,23 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .ov-q { display: none; grid-column: 2 / 4; font-size: 14px; color: var(--muted); margin-top: 4px; }
 .ov-row.open .ov-q { display: block; }
 .ov-list .empty { padding: 20px; color: var(--muted); }
+/* Feedback zur Karte */
+.typeline .tools { display: flex; align-items: center; gap: 2px; }
+.flag { width: 40px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: var(--muted); opacity: .7; }
+.flag svg { width: 19px; height: 19px; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-width: 520px; margin: 0 auto;
+  background: var(--card); border-radius: 22px 22px 0 0; box-shadow: var(--shadow);
+  padding: 20px max(18px, env(safe-area-inset-left, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 10px; }
+.sheet h3 { margin: 0; font-size: 19px; }
+.sheet p { margin: 0 0 4px; color: var(--muted); font-size: 15px; }
+.sheet .opt { text-align: left; padding: 14px 16px; border-radius: 14px; background: var(--soft); font-weight: 600; font-size: 16px; }
+.sheet .opt.on { box-shadow: inset 0 0 0 2px var(--accent); }
+.sheet textarea { width: 100%; min-height: 70px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; padding: 12px; resize: none; }
+.sheet .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.sheet .row button { padding: 14px; border-radius: 14px; font-weight: 700; background: var(--soft); }
+.sheet .row .go { background: var(--yes-bg); color: var(--yes-ink); }
+.sheet .row .go:disabled { opacity: .45; }
+.sheet-scrim { position: fixed; inset: 0; z-index: 25; background: rgba(0,0,0,.35); }
 @media (prefers-reduced-motion: reduce) { *, .card { transition: none !important; animation: none !important; } }
 </style>
 </head>
@@ -207,7 +224,10 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     </div>
     <div class="typeline">
       <span class="eyebrow" id="cType"></span>
+      <span class="tools">
+      <button class="flag" id="flagBtn" aria-label="Karte melden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg></button>
       <button class="speak" id="speakBtn" aria-label="Vorlesen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
+      </span>
     </div>
     <div class="stage">
       <article class="card" id="card" aria-live="polite">
@@ -290,6 +310,16 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   <button id="mSync">Jetzt abgleichen</button>
   <button class="danger" id="mReset">Heute zurücksetzen</button>
 </div>
+<div class="sheet-scrim" id="fbScrim" hidden></div>
+<div class="sheet" id="fbSheet" role="dialog" aria-labelledby="fbTitle" hidden>
+  <h3 id="fbTitle">Was stimmt mit der Karte nicht?</h3>
+  <p>Die Karte wird pausiert, bis Claude sie überarbeitet hat.</p>
+  <button class="opt" data-reason="unverständlich">Frage unverständlich</button>
+  <button class="opt" data-reason="Antwort zu voll">Antwort zu voll</button>
+  <button class="opt" data-reason="sonstiges">Sonstiges</button>
+  <textarea id="fbText" placeholder="Optional: was genau? (Diktieren geht auch)"></textarea>
+  <div class="row"><button id="fbCancel">Abbrechen</button><button class="go" id="fbSend" disabled>Melden</button></div>
+</div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -330,6 +360,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   if (params.get("k")) store.set("key", KEY);
   const cards = new Map(), states = new Map();
   let loaded = false, pending = store.get("pending", []), syncing = false;
+  // Gemeldete Karten, die noch nicht übertragen sind. Danach liefert die Tabelle sie gar nicht mehr aus, bis Claude sie überarbeitet hat.
+  let fbPending = store.get("fbPending", []);
+  const isPaused = id => fbPending.some(f => f.id === id);
 
   const $ = id => document.getElementById(id);
   function applyServer(data) {
@@ -354,13 +387,16 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   async function sync(extra) {
     if (syncing || !KEY) return false;
     syncing = true;
-    const sending = pending.slice();
+    const sending = pending.slice(), fbSending = fbPending.slice();
     try {
-      const res = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ k: KEY, reviews: sending }, extra || {})) });
+      const body = Object.assign({ k: KEY, reviews: sending }, fbSending.length ? { feedback: fbSending } : {}, extra || {});
+      const res = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "api");
       pending = pending.slice(sending.length);
       store.set("pending", pending);
+      fbPending = fbPending.slice(fbSending.length);
+      store.set("fbPending", fbPending);
       applyServer(data);
       pending.forEach(p => states.set(p.id, p.st));
       setNet(false);
@@ -389,6 +425,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   function dueLists(now) {
     const due = [], fresh = [];
     for (const [id] of cards) {
+      if (isPaused(id)) continue;
       const st = states.get(id);
       if (!st || !st.reps) fresh.push(id); else if (st.due <= now) due.push(id);
     }
@@ -422,7 +459,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     const chips = [];
     if (fresh.length) chips.push(chip(fresh.length + " neu"));
     if (due.length) chips.push(chip(due.length + " zum Wiederholen"));
-    chips.push(chip(cards.size + " insgesamt"));
+    chips.push(chip([...cards.keys()].filter(id => !isPaused(id)).length + " insgesamt"));
     $("chips").replaceChildren(...chips);
     if (total) { $("homeNote").hidden = true; $("startBtn").hidden = false; }
     else {
@@ -700,7 +737,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (offlineBusy) { toast("Wird schon geladen …"); return; }
     if (!navigator.onLine) { toast("Dafür brauchst du Internet."); return; }
     offlineBusy = true;
-    const list = [...cards.values()];
+    const list = [...cards.values()].filter(c => !isPaused(String(c.id)));
     let done = 0, failed = 0;
     toast("Lade " + list.length + " Karten für offline …");
     for (const c of list) {
@@ -741,7 +778,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     let list;
     if (run.set === "due") { const { due, fresh } = dueLists(endOfToday()); list = [...due, ...fresh]; }
     if (!list || !list.length) {
-      list = [...cards.keys()].sort((a, b) => { const x = cards.get(a), y = cards.get(b); return (x.stage || 9) - (y.stage || 9) || (x.order || 0) - (y.order || 0); });
+      list = [...cards.keys()].filter(id => !isPaused(id)).sort((a, b) => { const x = cards.get(a), y = cards.get(b); return (x.stage || 9) - (y.stage || 9) || (x.order || 0) - (y.order || 0); });
       if (run.set === "due") toast("Heute ist nichts fällig, du hörst alle Karten.");
     }
     if (!list.length) return;
@@ -850,7 +887,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
   function termOf(c) { const a = String(c.a || "").split(";").map(x => x.trim().replace(/\s*\(.+\)$/, "")).filter(Boolean); return a.length > 1 ? a.join(", ") : (a[0] || "").replace(/\.$/, ""); }
   function renderOverview() {
-    const ids = [...cards.keys()];
+    const ids = [...cards.keys()].filter(id => !isPaused(id));
     const cnt = { ok: 0, weak: 0, new: 0 };
     ids.forEach(id => cnt[statusOf(id)]++);
     $("tOk").textContent = cnt.ok; $("tWeak").textContent = cnt.weak; $("tNew").textContent = cnt.new;
@@ -882,13 +919,59 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     });
   }
 
+  // ---------- Karte melden ----------
+  const fb = { id: null, reason: "", wasPaused: false };
+  function openFeedback() {
+    const id = run.active ? run.list[run.idx] : session.current;
+    if (!id || !cards.get(id)) return;
+    fb.id = id; fb.reason = ""; fb.wasPaused = run.active && run.paused;
+    if (run.active) runPause(); else stopSpeech();
+    $("fbSheet").querySelectorAll(".opt").forEach(b => b.classList.remove("on"));
+    $("fbText").value = ""; $("fbSend").disabled = true;
+    $("fbSheet").hidden = false; $("fbScrim").hidden = false;
+  }
+  function closeFeedback(resume) {
+    $("fbSheet").hidden = true; $("fbScrim").hidden = true;
+    if (resume && run.active && !fb.wasPaused) runResume();
+    fb.id = null;
+  }
+  $("fbSheet").addEventListener("click", e => {
+    const b = e.target.closest(".opt"); if (!b) return;
+    fb.reason = b.dataset.reason;
+    $("fbSheet").querySelectorAll(".opt").forEach(x => x.classList.toggle("on", x === b));
+    $("fbSend").disabled = false;
+  });
+  $("fbCancel").addEventListener("click", () => closeFeedback(true));
+  $("fbScrim").addEventListener("click", () => closeFeedback(true));
+  $("fbSend").addEventListener("click", () => {
+    const id = fb.id; if (!id || !fb.reason) return;
+    fbPending.push({ id, reason: fb.reason, text: $("fbText").value.trim(), t: Date.now() });
+    store.set("fbPending", fbPending);
+    closeFeedback(false);
+    toast("Gemeldet. Die Karte ist pausiert, bis Claude sie überarbeitet hat.");
+    sync();
+    if (run.active) {
+      run.list = run.list.filter(x => x !== id);
+      if (!run.list.length) { endRun(true); return; }
+      run.idx = Math.min(run.idx, run.list.length - 1);
+      run.paused = false; setPlayIcon(); stopSpeech(); runLoop();
+      return;
+    }
+    // Abfrage: Karte aus dieser Runde nehmen, ohne Bewertung
+    session.queue = session.queue.filter(x => x !== id);
+    session.total = Math.max(session.done, session.total - 1);
+    session.current = null;
+    stopSpeech(); nextCard();
+  });
+  $("flagBtn").addEventListener("click", openFeedback);
+
   // ---------- Bedienung ----------
   $("startBtn").addEventListener("click", startSession);
   $("answers").addEventListener("click", e => { const b = e.target.closest(".ans"); if (b) answer(+b.dataset.r); });
   $("closeBtn").addEventListener("click", () => { endRun(false); stopSpeech(); session.active = false; show("home"); renderHome(); });
   $("homeBtn").addEventListener("click", () => { show("home"); renderHome(); });
   document.addEventListener("keydown", e => {
-    if ($("review").hidden) return;
+    if ($("review").hidden || !$("fbSheet").hidden) return;
     if ((e.key === " " || e.key === "Enter") && !session.revealed) { e.preventDefault(); reveal(); }
     else if (session.revealed && (e.key === "ArrowRight" || e.key === "ArrowLeft")) answer(e.key === "ArrowRight" ? 3 : 1);
   });
