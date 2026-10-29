@@ -19,7 +19,7 @@
 :root {
   --bg: #e9efec; --bg2: #dfe8e4; --ink: #15201c; --muted: #5d6b66; --line: #d3ddd8;
   --accent: #2b6a5b; --card: #ffffff; --hl: #d8ece5; --term: #2b6a5b; --num-bg: #e4efeb; --sub: #5d6b66;
-  --soft: #e4efeb;
+  --soft: #e4efeb; --field: #f4f8f6; --field-line: #7f8e88;
   --no-bg: #ffffff; --no-ink: #b25145; --no-ring: #e7c3bd; --yes-bg: #2b6a5b; --yes-ink: #ffffff;
   --shadow: 0 1px 2px rgba(20,40,34,.06), 0 12px 32px rgba(20,40,34,.12);
   --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", -apple-system, "SF Pro Text", system-ui, sans-serif;
@@ -28,7 +28,7 @@
   :root {
     --bg: #0f1513; --bg2: #131b18; --ink: #e6eeeb; --muted: #97a6a0; --line: #2b3632;
     --accent: #76b7a5; --card: #1b2421; --hl: #24423a; --term: #8fd0bd; --num-bg: #1f2d29; --sub: #97a6a0;
-    --soft: #1f2d29;
+    --soft: #1f2d29; --field: #141c19; --field-line: #6f7f79;
     --no-bg: #1b2421; --no-ink: #e8968a; --no-ring: #4a2f2b; --yes-bg: #76b7a5; --yes-ink: #0f1513;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
     color-scheme: dark;
@@ -43,9 +43,9 @@ body {
   font-family: var(--font); font-size: 17px; line-height: 1.5; -webkit-font-smoothing: antialiased; overscroll-behavior: none;
 }
 [hidden] { display: none !important; }
-#nl-badge-frame, iframe[id^="nl-badge"] { display: none !important; }
 button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; -webkit-tap-highlight-color: transparent; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* Schriftskala: 13 · 15 · 17 · 20 · 26 · 72. Ecken: 24 Karte · 16 Taste · 14 Feld · 999 Chip. */
 .app {
   height: 100%; display: flex; flex-direction: column; max-width: 520px; margin: 0 auto;
   padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px));
@@ -53,34 +53,35 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 }
 .screen { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 14px; }
 .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.primary { width: 100%; padding: 17px; border-radius: 16px; background: var(--yes-bg); color: var(--yes-ink); font-size: 18px; font-weight: 700; }
+.primary { width: 100%; padding: 17px; border-radius: 16px; background: var(--yes-bg); color: var(--yes-ink); font-size: 17px; font-weight: 700; }
 .primary:active { transform: scale(.985); }
 .note { color: var(--muted); font-size: 15px; margin: 0; text-wrap: pretty; }
 
 /* Übersicht */
 .home-main { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
-.hero { background: var(--card); border-radius: 26px; padding: 28px 24px; box-shadow: var(--shadow); display: grid; gap: 6px; }
-.big { font-size: 80px; font-weight: 800; color: var(--accent); line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
-.big-sub { font-size: 21px; font-weight: 700; }
+.hero { background: var(--card); border-radius: 24px; padding: 28px 24px; box-shadow: var(--shadow); display: grid; gap: 6px; }
+.big { font-size: 72px; font-weight: 800; color: var(--accent); line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.big-sub { font-size: 20px; font-weight: 700; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.chip { background: var(--soft); border-radius: 999px; padding: 6px 12px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.chip { background: var(--soft); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
 
 /* Abfrage */
 .bar { display: flex; align-items: center; gap: 12px; }
-.close { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); flex: none; }
+.close { width: 44px; height: 44px; margin-left: -10px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); flex: none; }
 .close svg { width: 20px; height: 20px; }
 .progress { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
 .progress i { display: block; height: 100%; background: var(--accent); width: 0; border-radius: 3px; transition: width .3s ease; }
-.count { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
+.count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
 .type { padding-left: 4px; }
 .stage { flex: 1; min-height: 0; display: flex; }
 .card {
   position: relative; flex: 1; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden;
-  background: var(--card); color: var(--ink); border-radius: 26px; box-shadow: var(--shadow);
+  background: var(--card); color: var(--ink); border-radius: 24px; box-shadow: var(--shadow);
   padding: 28px 24px; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; text-align: left; gap: 22px;
-  touch-action: pan-y; user-select: none; -webkit-user-select: none; will-change: transform;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none;
 }
 .card.back-in { animation: pop .22s ease; }
+.card.dragging { will-change: transform; }
 @keyframes pop { from { transform: scale(.97); opacity: .6; } to { transform: none; opacity: 1; } }
 .card.leave-right { transition: transform .25s ease, opacity .25s ease; transform: translateX(120%) rotate(12deg); opacity: 0; }
 .card.leave-left { transition: transform .25s ease, opacity .25s ease; transform: translateX(-120%) rotate(-12deg); opacity: 0; }
@@ -92,17 +93,17 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .badge svg { width: 110px; height: 110px; }
 .badge.yes { color: var(--yes-ink); }
 .badge.no { color: var(--card); }
-.ask { font-size: 27px; font-weight: 700; line-height: 1.3; margin: 0; text-wrap: balance; width: 100%; hyphens: manual; }
+.ask { font-size: 26px; font-weight: 700; line-height: 1.3; margin: 0; text-wrap: pretty; width: 100%; hyphens: manual; }
 .ask mark { background: var(--hl); color: inherit; border-radius: 6px; padding: 0 5px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .tap-hint { margin-top: auto; text-align: center; font-size: 15px; color: var(--muted); }
 .answer { border-top: 1px solid var(--line); padding-top: 22px; width: 100%; min-width: 0; }
-.answer .term { font-size: 28px; font-weight: 800; color: var(--term); line-height: 1.2; width: 100%; }
+.answer .term { font-size: 26px; font-weight: 800; color: var(--term); line-height: 1.2; width: 100%; }
 .answer ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
 .answer li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; }
-.answer li > i { font-style: normal; width: 28px; height: 28px; border-radius: 50%; background: var(--num-bg); color: var(--term); font-weight: 700; font-size: 14px; display: grid; place-items: center; }
+.answer li > i { font-style: normal; width: 28px; height: 28px; border-radius: 50%; background: var(--num-bg); color: var(--term); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
 .answer li .t { display: block; font-size: 20px; font-weight: 600; line-height: 1.3; min-width: 0; padding-top: 1px; }
-.answer li small { display: block; font-weight: 400; font-size: 14px; color: var(--sub); margin-top: 1px; }
-.answer .anote { margin-top: 6px; font-size: 14px; line-height: 1.4; color: var(--sub); }
+.answer li small { display: block; font-weight: 400; font-size: 15px; line-height: 1.4; color: var(--sub); margin-top: 1px; }
+.answer .anote { margin-top: 6px; font-size: 15px; line-height: 1.4; color: var(--sub); }
 .fit { white-space: normal; overflow-wrap: normal; }
 .fit.broken { overflow-wrap: anywhere; hyphens: auto; }
 
@@ -112,16 +113,16 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .ans.no { background: var(--no-bg); color: var(--no-ink); box-shadow: inset 0 0 0 2px var(--no-ring); }
 .ans.yes { background: var(--yes-bg); color: var(--yes-ink); }
 .ans:active { transform: scale(.98); }
-.swipe-hint { text-align: center; font-size: 14px; color: var(--muted); margin: -4px 0 0; }
+.swipe-hint { text-align: center; font-size: 13px; color: var(--muted); margin: -4px 0 0; }
 
 /* Fertig */
 .done-main { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
-.done-main h1 { font-size: 32px; line-height: 1.2; margin: 0; text-wrap: balance; }
+.done-main h1 { font-size: 26px; line-height: 1.2; margin: 0; text-wrap: balance; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 12px; font-size: 15px; max-width: calc(100% - 36px); }
 
 /* Vorlesen */
-.typeline { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding-left: 4px; }
-.speak { width: 40px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: var(--muted); margin-right: -6px; }
+.typeline { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding-left: 4px; }
+.speak { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--muted); }
 .speak svg { width: 22px; height: 22px; }
 .speak.on { color: var(--term); }
 .speak.busy { opacity: .5; }
@@ -142,16 +143,16 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 /* Menü und Kartenübersicht */
 .topline { display: flex; align-items: center; justify-content: space-between; min-height: 40px; }
-.dots { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); margin-right: -8px; }
+.dots { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); margin-right: -10px; }
 .dots svg { width: 22px; height: 22px; }
 .menu { position: fixed; top: calc(58px + env(safe-area-inset-top, 0px)); right: max(18px, env(safe-area-inset-right, 0px)); z-index: 20;
   background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 6px; min-width: 230px; display: grid; }
-.menu button { text-align: left; padding: 12px 14px; border-radius: 11px; font-size: 16px; font-weight: 600; }
+.menu button { text-align: left; padding: 12px 14px; border-radius: 12px; font-size: 17px; font-weight: 600; }
 .menu button:active { background: var(--soft); }
 .menu .danger { color: var(--no-ink); }
 .scrim { position: fixed; inset: 0; z-index: 15; }
 .confirm { background: var(--card); border-radius: 20px; box-shadow: var(--shadow); padding: 20px; display: grid; gap: 14px; }
-.confirm h3 { margin: 0; font-size: 19px; }
+.confirm h3 { margin: 0; font-size: 20px; }
 .confirm p { margin: 0; color: var(--muted); font-size: 15px; }
 .confirm .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .confirm .row button { padding: 13px; border-radius: 13px; font-weight: 700; background: var(--soft); }
@@ -168,25 +169,27 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .ov-row { display: block; width: 100%; text-align: left; padding: 13px 16px; border-bottom: 1px solid var(--line); }
 .ov-row:last-child { border-bottom: 0; }
 .ov-main { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
-.ov-term { font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+.ov-term { font-weight: 600; font-size: 17px; overflow-wrap: anywhere; }
 .ov-when { font-size: 13px; color: var(--muted); white-space: nowrap; }
 .ov-bar { grid-column: 2 / 4; height: 4px; background: var(--soft); border-radius: 2px; overflow: hidden; margin-top: 2px; }
 .ov-bar i { display: block; height: 100%; background: var(--term); border-radius: 2px; }
-.ov-q { display: none; grid-column: 2 / 4; font-size: 14px; color: var(--muted); margin-top: 4px; }
+.ov-q { display: none; grid-column: 2 / 4; font-size: 15px; color: var(--muted); margin-top: 4px; }
 .ov-row.open .ov-q { display: block; }
 .ov-list .empty { padding: 20px; color: var(--muted); }
 /* Feedback zur Karte */
-.typeline .tools { display: flex; align-items: center; gap: 2px; }
-.flag { width: 40px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: var(--muted); opacity: .7; }
+.typeline .tools { display: flex; align-items: center; gap: 8px; margin-right: -10px; }
+.flag { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--muted); }
 .flag svg { width: 19px; height: 19px; }
 .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-width: 520px; margin: 0 auto;
   background: var(--card); border-radius: 22px 22px 0 0; box-shadow: var(--shadow);
   padding: 20px max(18px, env(safe-area-inset-left, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 10px; }
-.sheet h3 { margin: 0; font-size: 19px; }
+.sheet .sh-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sheet .sh-head .close { margin: 0 -10px 0 0; }
+.sheet h3 { margin: 0; font-size: 20px; }
 .sheet p { margin: 0 0 4px; color: var(--muted); font-size: 15px; }
-.sheet .opt { text-align: left; padding: 14px 16px; border-radius: 14px; background: var(--soft); font-weight: 600; font-size: 16px; }
+.sheet .opt { text-align: left; padding: 14px 16px; border-radius: 14px; background: var(--soft); font-weight: 600; font-size: 17px; }
 .sheet .opt.on { box-shadow: inset 0 0 0 2px var(--accent); }
-.sheet textarea { width: 100%; min-height: 70px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; padding: 12px; resize: none; }
+.sheet textarea { width: 100%; min-height: 70px; border-radius: 14px; border: 1.5px solid var(--field-line); background: var(--field); color: var(--ink); font: inherit; font-size: 17px; padding: 12px; resize: none; }
 .sheet .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
 .sheet .row button { padding: 14px; border-radius: 14px; font-weight: 700; background: var(--soft); }
 .sheet .row .go { background: var(--yes-bg); color: var(--yes-ink); }
@@ -194,18 +197,20 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .sheet-scrim { position: fixed; inset: 0; z-index: 25; background: rgba(0,0,0,.35); }
 /* Einmal schreiben */
 .write-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
-.write-card { background: var(--card); border-radius: 26px; box-shadow: var(--shadow); padding: 24px; display: grid; gap: 16px; }
-.write-card .wq { font-size: 18px; font-weight: 600; line-height: 1.35; margin: 0; color: var(--muted); }
-.wrow { display: grid; gap: 6px; }
-.wrow .wt { font-size: 22px; font-weight: 800; color: var(--term); line-height: 1.2; overflow-wrap: anywhere; }
+.write-card { background: var(--card); border-radius: 24px; box-shadow: var(--shadow); padding: 24px; display: grid; gap: 16px; }
+.write-card .wq { font-size: 17px; font-weight: 600; line-height: 1.35; margin: 0; color: var(--muted); }
+.wrow { display: grid; gap: 8px; }
+.wrows { display: grid; gap: 18px; }
+.wrow .wt { font-size: 20px; font-weight: 800; color: var(--term); line-height: 1.2; overflow-wrap: anywhere; }
 .wrow .wbox { position: relative; }
-.wrow input { width: 100%; font: inherit; font-size: 18px; padding: 12px 44px 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.wrow input { width: 100%; font: inherit; font-size: 17px; padding: 12px 44px 12px 14px; border-radius: 14px; border: 1.5px solid var(--field-line); background: var(--field); color: var(--ink); }
 .wrow input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .wrow .ok { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; color: var(--term); opacity: 0; transition: opacity .15s; }
 .wrow.done .ok { opacity: 1; }
 .wrow.done input { border-color: var(--term); }
-.skip { align-self: center; font-size: 14px; color: var(--muted); padding: 6px 10px; text-decoration: underline; text-underline-offset: 3px; }
+.skip { align-self: center; font-size: 15px; color: var(--muted); min-height: 44px; padding: 0 16px; text-decoration: underline; text-underline-offset: 3px; }
 .primary:disabled { opacity: .45; }
+.appver { font-size: 13px; color: var(--muted); padding: 6px 14px 4px; }
 .sheet .gen-only { display: none; }
 .sheet.general .card-only { display: none; }
 .sheet.general .gen-only { display: block; }
@@ -217,7 +222,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   <section class="screen" id="home">
     <div class="topline">
       <span class="eyebrow">M1 Psychologie</span>
-      <button class="dots" id="menuBtn" aria-label="Optionen"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg></button>
+      <button class="dots" id="menuBtn" aria-label="Optionen" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg></button>
     </div>
     <div class="home-main">
       <div class="hero">
@@ -274,7 +279,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       <p class="note" id="wNote">Zweimal "Noch nicht" bei dieser Karte. Schreib den Begriff einmal.</p>
       <div class="write-card">
         <p class="wq" id="wAsk"></p>
-        <div id="wRows" style="display:grid; gap:14px"></div>
+        <div id="wRows" class="wrows"></div>
       </div>
       <button class="skip" id="wSkip">Überspringen</button>
     </div>
@@ -309,11 +314,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       <h1>Durchlauf zum Anhören</h1>
     </div>
     <div class="setup">
-      <div class="lab"><span>Pause vor der Antwort</span><b id="pFrontVal"></b></div>
+      <div class="lab"><label for="pFront">Pause vor der Antwort</label><b id="pFrontVal"></b></div>
       <input type="range" id="pFront" min="1" max="15" step="1">
-      <div class="lab"><span>Pause vor der nächsten Karte</span><b id="pNextVal"></b></div>
+      <div class="lab"><label for="pNext">Pause vor der nächsten Karte</label><b id="pNextVal"></b></div>
       <input type="range" id="pNext" min="1" max="10" step="1">
-      <div class="seg" id="runSet"><button data-set="due" class="on">Heute fällig</button><button data-set="all">Alle Karten</button></div>
+      <div class="seg" id="runSet"><button data-set="due" class="on" aria-pressed="true">Heute fällig</button><button data-set="all" aria-pressed="false">Alle Karten</button></div>
       <p class="note">Die Karten drehen sich von selbst. Antworten werden dabei nicht gespeichert, dein Lernstand bleibt gleich.</p>
     </div>
     <div class="home-main"></div>
@@ -340,12 +345,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   <button id="mFeedback">Feedback zur App</button>
   <button id="mSync">Jetzt abgleichen</button>
   <button class="danger" id="mReset">Heute zurücksetzen</button>
-  <span id="appVer" style="font-size:12px;color:var(--muted);padding:6px 14px 4px"></span>
+  <span id="appVer" class="appver"></span>
 </div>
 <div class="sheet-scrim" id="fbScrim" hidden></div>
-<div class="sheet" id="fbSheet" role="dialog" aria-labelledby="fbTitle" hidden>
-  <h3 id="fbTitle" class="card-only">Was stimmt mit der Karte nicht?</h3>
-  <h3 class="gen-only">Feedback zur App</h3>
+<div class="sheet" id="fbSheet" role="dialog" aria-modal="true" aria-labelledby="fbTitle" hidden>
+  <div class="sh-head">
+    <h3 id="fbTitle"><span class="card-only">Was stimmt mit der Karte nicht?</span><span class="gen-only">Feedback zur App</span></h3>
+    <button class="close" id="fbClose" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
   <p class="card-only">Die Karte wird pausiert, bis Claude sie überarbeitet hat.</p>
   <p class="gen-only">Gilt für die App oder alle Karten, nicht für eine bestimmte Karte. Claude liest es vor der nächsten Session.</p>
   <button class="opt card-only" data-reason="unverständlich">Frage unverständlich</button>
@@ -354,7 +361,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   <textarea id="fbText" placeholder="Optional: was genau? (Diktieren geht auch)"></textarea>
   <div class="row"><button id="fbCancel">Abbrechen</button><button class="go" id="fbSend" disabled>Melden</button></div>
 </div>
-<div class="toast" id="toast" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
 (() => {
@@ -384,7 +391,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "29.10. 01:30";
+  const APP_V = "29.10. 13:20";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -525,8 +532,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (el.scrollWidth > el.clientWidth + 1) el.classList.add("broken");
   }
   function fitAll() {
-    fit($("cAsk"), 27, 19);
-    $("cAnswer").querySelectorAll(".term").forEach(el => fit(el, 28, 17));
+    fit($("cAsk"), 26, 19);
+    $("cAnswer").querySelectorAll(".term").forEach(el => fit(el, 26, 17));
     $("cAnswer").querySelectorAll("li .t").forEach(el => fit(el, 20, 14));
   }
   function fillAnswer(c) {
@@ -638,13 +645,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     const terms = termsOf(c);
     $("wNote").textContent = terms.length > 1 ? 'Zweimal "Noch nicht" bei dieser Karte. Schreib die Begriffe einmal.' : 'Zweimal "Noch nicht" bei dieser Karte. Schreib den Begriff einmal.';
     terms.forEach(term => {
-      const row = document.createElement("div"); row.className = "wrow";
+      const row = document.createElement("label"); row.className = "wrow";
       const t = document.createElement("div"); t.className = "wt"; t.textContent = term;
       const box = document.createElement("div"); box.className = "wbox";
       const inp = document.createElement("input");
       inp.type = "text"; inp.autocomplete = "off"; inp.spellcheck = false;
       inp.setAttribute("autocapitalize", "off"); inp.setAttribute("autocorrect", "off");
-      inp.setAttribute("aria-label", "Begriff schreiben");
+      inp.placeholder = "hier abtippen";
       const ok = document.createElement("span"); ok.className = "ok";
       ok.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
       inp.addEventListener("input", () => {
@@ -678,7 +685,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     card.querySelectorAll(".ask,.answer,.tap-hint").forEach(t => t.style.opacity = 1 - q);
   }
   function resetStamps() { paintSwipe(0); }
-  function begin(x, y) { sx = x; sy = y; dx = 0; active = true; horiz = null; tapCandidate = true; card.classList.remove("snap", "back-in"); }
+  function begin(x, y) { sx = x; sy = y; dx = 0; active = true; horiz = null; tapCandidate = true; card.classList.remove("snap", "back-in"); card.classList.add("dragging"); }
   function move(x, y, ev) {
     if (!active || run.active) return;
     dx = x - sx; const dy = y - sy;
@@ -691,12 +698,12 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     paintSwipe(dx);
   }
   function end() {
-    if (!active) return; active = false;
+    if (!active) return; active = false; card.classList.remove("dragging");
     if (tapCandidate) { reveal(); return; }
     if (horiz && session.revealed && Math.abs(dx) > TH) { answer(dx > 0 ? 3 : 1); return; }
     card.classList.add("snap"); card.style.transform = ""; resetStamps();
   }
-  function cancel() { active = false; card.classList.add("snap"); card.style.transform = ""; resetStamps(); }
+  function cancel() { active = false; card.classList.remove("dragging"); card.classList.add("snap"); card.style.transform = ""; resetStamps(); }
   card.addEventListener("touchstart", e => { const t = e.touches[0]; begin(t.clientX, t.clientY); }, { passive: true });
   card.addEventListener("touchmove", e => { const t = e.touches[0]; move(t.clientX, t.clientY, e); }, { passive: false });
   card.addEventListener("touchend", e => { if (tapCandidate && e.cancelable) e.preventDefault(); end(); }, { passive: false });
@@ -706,7 +713,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   window.addEventListener("pointerup", e => { if (e.pointerType === "mouse") end(); });
 
   // ---------- Menü ----------
-  function openMenu(on) { $("menu").hidden = !on; $("scrim").hidden = !on; }
+  function openMenu(on) { $("menu").hidden = !on; $("scrim").hidden = !on; $("menuBtn").setAttribute("aria-expanded", on ? "true" : "false"); if (on) { const f = $("menu").querySelector("button"); if (f) f.focus(); } }
   $("menuBtn").addEventListener("click", () => openMenu($("menu").hidden));
   $("scrim").addEventListener("click", () => openMenu(false));
   $("mSync").addEventListener("click", async () => { openMenu(false); toast("Wird abgeglichen …"); const ok = await sync(); toast(ok ? "Auf dem neuesten Stand." : "Gerade offline. Versuch es gleich noch einmal."); });
@@ -856,7 +863,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   $("pNext").addEventListener("input", e => { run.pNext = +e.target.value; store.set("pNext", run.pNext); setRunLabels(); });
   $("runSet").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
-    run.set = b.dataset.set; $("runSet").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    run.set = b.dataset.set; $("runSet").querySelectorAll("button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
   });
   $("mRun").addEventListener("click", () => { openMenu(false); setRunLabels(); show("runSetup"); });
   $("rsBack").addEventListener("click", () => { show("home"); renderHome(); });
@@ -1051,6 +1058,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     $("fbSheet").querySelectorAll(".opt").forEach(b => b.classList.remove("on"));
     $("fbText").value = ""; $("fbSend").disabled = true;
     $("fbSheet").hidden = false; $("fbScrim").hidden = false;
+    setTimeout(() => { const f = $("fbSheet").querySelector(".opt"); if (f) f.focus({ preventScroll: true }); }, 50);
   }
   function closeFeedback(resume) {
     $("fbSheet").hidden = true; $("fbScrim").hidden = true;
@@ -1064,6 +1072,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     $("fbSend").disabled = false;
   });
   $("fbCancel").addEventListener("click", () => closeFeedback(true));
+  $("fbClose").addEventListener("click", () => closeFeedback(true));
   $("fbScrim").addEventListener("click", () => closeFeedback(true));
   $("fbSend").addEventListener("click", () => {
     if (fb.general) {
@@ -1101,6 +1110,10 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   $("closeBtn").addEventListener("click", () => { endRun(false); stopSpeech(); session.active = false; show("home"); renderHome(); });
   $("homeBtn").addEventListener("click", () => { show("home"); renderHome(); });
   document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      if (!$("fbSheet").hidden) { closeFeedback(true); return; }
+      if (!$("menu").hidden) { openMenu(false); $("menuBtn").focus(); return; }
+    }
     if ($("review").hidden || !$("fbSheet").hidden) return;
     if ((e.key === " " || e.key === "Enter") && !session.revealed) { e.preventDefault(); reveal(); }
     else if (session.revealed && (e.key === "ArrowRight" || e.key === "ArrowLeft")) answer(e.key === "ArrowRight" ? 3 : 1);
