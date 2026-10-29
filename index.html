@@ -214,6 +214,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .sheet .gen-only { display: none; }
 .sheet.general .card-only { display: none; }
 .sheet.general .gen-only { display: block; }
+/* Tastatur: Hinweise nur an Geräten mit Maus/Trackpad */
+.desk-only { display: none; }
+@media (hover: hover) and (pointer: fine) { .desk-only { display: inline; } .touch-only { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, .card { transition: none !important; animation: none !important; } }
 </style>
 </head>
@@ -247,8 +250,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     <div class="typeline">
       <span class="eyebrow" id="cType"></span>
       <span class="tools">
-      <button class="flag" id="flagBtn" aria-label="Karte melden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg></button>
-      <button class="speak" id="speakBtn" aria-label="Vorlesen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
+      <button class="flag" id="flagBtn" aria-label="Karte melden" title="Karte melden (F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg></button>
+      <button class="speak" id="speakBtn" aria-label="Vorlesen" title="Vorlesen (↓)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
       </span>
     </div>
     <div class="stage">
@@ -258,14 +261,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
         <div class="badge no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
         <h2 class="ask fit" id="cAsk"></h2>
         <div class="answer" id="cAnswer" hidden></div>
-        <div class="tap-hint" id="tapHint">Tippen, um die Antwort zu sehen</div>
+        <div class="tap-hint" id="tapHint"><span class="touch-only">Tippen, um die Antwort zu sehen</span><span class="desk-only">Leertaste, Enter oder ↑ zeigt die Antwort</span></div>
       </article>
     </div>
     <div class="answers" id="answers" hidden>
       <button class="ans no" data-r="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Noch nicht</button>
       <button class="ans yes" data-r="3">Wusste ich<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
-    <p class="swipe-hint" id="swipeHint" hidden>Oder die Karte nach links oder rechts wischen.</p>
+    <p class="swipe-hint" id="swipeHint" hidden><span class="touch-only">Oder die Karte nach links oder rechts wischen.</span><span class="desk-only">Oder ← und → auf der Tastatur. ↓ liest vor, F meldet die Karte.</span></p>
     <div class="runctl" id="runCtl" hidden>
       <button id="rPrev" aria-label="Vorherige Karte"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
       <button id="rPlay" class="big" aria-label="Pause"><svg viewBox="0 0 24 24" fill="currentColor" id="rPlayIcon"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
@@ -391,7 +394,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "29.10. 13:25";
+  const APP_V = "29.10. 13:40";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -589,7 +592,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (run.active || session.revealed || !session.current) return;
     session.revealed = true;
     $("cAnswer").hidden = false; $("tapHint").hidden = true; $("answers").hidden = false;
-    $("swipeHint").hidden = session.seenHint;
+    $("swipeHint").hidden = session.seenHint && !matchMedia("(hover: hover) and (pointer: fine)").matches;
     requestAnimationFrame(fitAll);
     if (autoRead) speak("a");
   }
@@ -1109,14 +1112,48 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   $("answers").addEventListener("click", e => { const b = e.target.closest(".ans"); if (b) answer(+b.dataset.r); });
   $("closeBtn").addEventListener("click", () => { endRun(false); stopSpeech(); session.active = false; show("home"); renderHome(); });
   $("homeBtn").addEventListener("click", () => { show("home"); renderHome(); });
+  // Tastatur (Desktop): Pfeile wie Wischen, WASD als Spiegel für die linke Hand.
+  const KEY_REVEAL = [" ", "Enter", "ArrowUp", "w", "W"], KEY_NO = ["ArrowLeft", "a", "A"], KEY_YES = ["ArrowRight", "d", "D"], KEY_SPEAK = ["ArrowDown", "s", "S"];
+  const visible = id => !$(id).hidden;
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape") {
-      if (!$("fbSheet").hidden) { closeFeedback(true); return; }
-      if (!$("menu").hidden) { openMenu(false); $("menuBtn").focus(); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key, inField = /^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName || "");
+    const take = fn => { e.preventDefault(); fn(); };
+    // Meldeblatt offen
+    if (visible("fbSheet")) {
+      if (k === "Escape") return take(() => closeFeedback(true));
+      if (k === "Enter" && (!inField || !e.shiftKey) && !$("fbSend").disabled) return take(() => $("fbSend").click());
+      if (!inField && /^[123]$/.test(k)) {
+        const opts = [...$("fbSheet").querySelectorAll(".opt")].filter(b => b.offsetParent !== null);
+        const b = opts[+k - 1]; if (b) take(() => { b.click(); b.focus(); });
+      }
+      return;
     }
-    if ($("review").hidden || !$("fbSheet").hidden) return;
-    if ((e.key === " " || e.key === "Enter") && !session.revealed) { e.preventDefault(); reveal(); }
-    else if (session.revealed && (e.key === "ArrowRight" || e.key === "ArrowLeft")) answer(e.key === "ArrowRight" ? 3 : 1);
+    if (visible("menu")) { if (k === "Escape") take(() => { openMenu(false); $("menuBtn").focus(); }); return; }
+    if (e.repeat) return;
+    // Einmal schreiben: tippen bleibt frei
+    if (visible("write")) {
+      if (k === "Enter" && !$("wNext").disabled) return take(() => $("wNext").click());
+      if (k === "Escape") return take(() => $("wSkip").click());
+      return;
+    }
+    if (inField) return;
+    if (visible("home")) { if (k === "Enter" && visible("startBtn")) take(() => $("startBtn").click()); return; }
+    if (visible("done")) { if (k === "Enter") take(() => $("homeBtn").click()); return; }
+    if (!visible("review")) return;
+    if (k === "Escape") return take(() => $("closeBtn").click());
+    if (run.active) {
+      if (k === " ") return take(() => { unlockAudio(); run.paused ? runResume() : runPause(); });
+      if (KEY_NO.includes(k)) return take(() => runJump(-1));
+      if (KEY_YES.includes(k)) return take(() => runJump(1));
+      if (k === "f" || k === "F") return take(openFeedback);
+      return;
+    }
+    if (k === "f" || k === "F") return take(openFeedback);
+    if (KEY_SPEAK.includes(k)) return take(() => $("speakBtn").click());
+    if (!session.revealed) { if (KEY_REVEAL.includes(k)) take(reveal); return; }
+    if (KEY_NO.includes(k)) return take(() => answer(1));
+    if (KEY_YES.includes(k)) return take(() => answer(3));
   });
 
   // ---------- Start ----------
