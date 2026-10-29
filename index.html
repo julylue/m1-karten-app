@@ -384,7 +384,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "28.10. 20:40";
+  const APP_V = "29.10. 01:30";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -592,6 +592,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     const id = session.current, now = Date.now();
     const next = schedule(states.get(id), g, now);
     states.set(id, next);
+    noteSession(id, g, now);
     let mustWrite = false;
     if (g === 1) {
       session.misses++; session.queue.splice(Math.min(3, session.queue.length), 0, id);
@@ -726,6 +727,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     const today = new Date().toDateString();
     pending = pending.filter(p => new Date(p.t).toDateString() !== today);
     store.set("pending", pending);
+    const sm = store.get("sessMiss", {}) || {}; Object.keys(sm).forEach(k => { if (new Date(sm[k].last).toDateString() === today) delete sm[k]; }); store.set("sessMiss", sm);
     $("resetYes").disabled = true;
     const ok = await sync({ reset: "today" });
     $("resetYes").disabled = false;
@@ -964,20 +966,43 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     h("previoustrack", () => runJump(-1));
   }
 
+  // ---------- Fehlversuche je Sitzung ----------
+  // Sitzung = Bewertungen derselben Karte mit weniger als 3 Stunden Abstand.
+  // SESS_SEED: aus dem Blatt log berechnet (Stand 29.10. 01:00), danach zählt die App selbst mit.
+  const SESS_GAP = 3 * 3600000;
+  const SESS_SEED = {"s1028-12":{"last":1793231912700,"miss":2},"s1028-16":{"last":1793231641054,"miss":2},"s1028-17":{"last":1793231905414,"miss":2},"s1028-20":{"last":1793231276939,"miss":2}};
+  function sessRec(id) {
+    const loc = (store.get("sessMiss", {}) || {})[id], sd = SESS_SEED[id];
+    if (loc && sd) return loc.last >= sd.last ? loc : sd;
+    return loc || sd || null;
+  }
+  function noteSession(id, g, now) {
+    const all = store.get("sessMiss", {}) || {};
+    const prev = sessRec(id);
+    const rec = prev && now - prev.last < SESS_GAP ? { last: now, miss: prev.miss + (g === 1 ? 1 : 0) } : { last: now, miss: g === 1 ? 1 : 0 };
+    all[id] = rec; store.set("sessMiss", all);
+  }
+
   // ---------- Kartenübersicht ----------
+  // Noch unsicher: zuletzt "Noch nicht" ODER in der letzten Sitzung mindestens zweimal "Noch nicht".
   function statusOf(id) {
     const st = states.get(id);
     if (!st || !st.reps) return "new";
-    return st.lastRating === 1 ? "weak" : "ok";
+    if (st.lastRating === 1) return "weak";
+    const rec = sessRec(id);
+    if (rec && rec.miss >= 2 && rec.last >= (st.last || 0) - 60000) return "weak";
+    return "ok";
   }
+  function barOf(id) { const st = states.get(id); return st && st.reps ? Math.min(1, Math.log(1 + st.s) / Math.log(1 + 60)) : -1; }
   function termOf(c) { const a = String(c.a || "").split(";").map(x => x.trim().replace(/\s*\(.+\)$/, "")).filter(Boolean); return a.length > 1 ? a.join(", ") : (a[0] || "").replace(/\.$/, ""); }
   function renderOverview() {
     const ids = [...cards.keys()].filter(id => !isPaused(id));
     const cnt = { ok: 0, weak: 0, new: 0 };
     ids.forEach(id => cnt[statusOf(id)]++);
     $("tOk").textContent = cnt.ok; $("tWeak").textContent = cnt.weak; $("tNew").textContent = cnt.new;
-    const rank = { weak: 0, ok: 1, new: 2 };
-    ids.sort((a, b) => rank[statusOf(a)] - rank[statusOf(b)] || ((states.get(a) || {}).due || 0) - ((states.get(b) || {}).due || 0));
+    // Sortiert nach Balken: kürzester oben, längster unten; neue Karten (noch kein Balken) ganz unten.
+    const isNew = id => statusOf(id) === "new";
+    ids.sort((a, b) => (isNew(a) - isNew(b)) || (barOf(a) - barOf(b)) || ((states.get(a) || {}).due || 0) - ((states.get(b) || {}).due || 0));
     const list = $("ovList"); list.replaceChildren();
     if (!ids.length) { const e = document.createElement("div"); e.className = "empty"; e.textContent = "Noch keine Karten."; list.append(e); return; }
     ids.forEach(id => {
@@ -993,7 +1018,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       if (stt !== "new") {
         const bar = document.createElement("div"); bar.className = "ov-bar";
         const fill = document.createElement("i");
-        fill.style.width = Math.round(Math.min(1, Math.log(1 + st.s) / Math.log(1 + 60)) * 100) + "%";
+        fill.style.width = Math.max(2, Math.round(barOf(id) * 100)) + "%";
         bar.append(fill); main.append(bar);
       }
       const q = document.createElement("div"); q.className = "ov-q"; q.textContent = isList ? termOf(c) : askText;
