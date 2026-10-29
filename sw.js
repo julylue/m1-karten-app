@@ -1,5 +1,5 @@
 // Offline-Speicher fuer die App-Huelle. Daten laufen nie ueber diesen Cache.
-const CACHE = "m1karten-v18";
+const CACHE = "m1karten-v19";
 const SHELL = ["./", "./index.html", "./icon-180.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -10,6 +10,8 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET") return;
+  // Tonspuren speichert die App selbst (Cache "m1-audio"); hier nicht doppelt ablegen.
+  if (url.origin === location.origin && url.pathname.includes("/audio/") && url.pathname.endsWith(".mp3")) return;
   if (url.origin === location.origin) {
     // Netz zuerst, damit Updates ankommen; offline aus dem Cache
     e.respondWith(

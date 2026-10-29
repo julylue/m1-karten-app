@@ -125,7 +125,17 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .speak { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--muted); }
 .speak svg { width: 22px; height: 22px; }
 .speak.on { color: var(--term); }
-.speak.busy { opacity: .5; }
+.speak.busy svg, .speak.wait svg { opacity: .45; }
+.speak { position: relative; }
+.speak.busy::after, .speak.wait::after { content: ""; position: absolute; inset: 9px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Ton-Ladering oben rechts: Platz immer reserviert, damit nichts verrutscht */
+.topright { display: flex; align-items: center; gap: 0; }
+.loadring { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; }
+.loadring.idle { visibility: hidden; }
+.loadring svg { width: 20px; height: 20px; transform: rotate(-90deg); }
+.loadring .tr { stroke: var(--line); }
+.loadring .pr { stroke: var(--accent); transition: stroke-dashoffset .3s ease; }
 
 /* Durchlauf */
 .setup { background: var(--card); border-radius: 20px; box-shadow: var(--shadow); padding: 20px; display: grid; gap: 14px; }
@@ -225,7 +235,10 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   <section class="screen" id="home">
     <div class="topline">
       <span class="eyebrow">M1 Psychologie</span>
+      <span class="topright">
+      <button class="loadring idle" id="loadRing" aria-label="Ton wird geladen" title="Ton wird geladen"><svg viewBox="0 0 24 24" fill="none" stroke-width="3"><circle class="tr" cx="12" cy="12" r="9"/><circle class="pr" id="loadArc" cx="12" cy="12" r="9" stroke-linecap="round" stroke-dasharray="56.55" stroke-dashoffset="56.55"/></svg></button>
       <button class="dots" id="menuBtn" aria-label="Optionen" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg></button>
+      </span>
     </div>
     <div class="home-main">
       <div class="hero">
@@ -394,7 +407,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "29.10. 13:40";
+  const APP_V = "29.10. 14:15";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -446,6 +459,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       pending.forEach(p => states.set(p.id, p.st));
       setNet(false);
       renderHome();
+      preloadAudio();
       return true;
     } catch (err) {
       setNet(true, err && err.message === "key");
@@ -575,6 +589,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     $("answers").hidden = true; $("swipeHint").hidden = true;
     card.scrollTop = 0;
     requestAnimationFrame(fitAll);
+    markSpeak();
   }
   function nextCard() {
     if (!session.queue.length) return finish();
@@ -594,6 +609,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     $("cAnswer").hidden = false; $("tapHint").hidden = true; $("answers").hidden = false;
     $("swipeHint").hidden = session.seenHint && !matchMedia("(hover: hover) and (pointer: fine)").matches;
     requestAnimationFrame(fitAll);
+    markSpeak();
     if (autoRead) speak("a");
   }
   function answer(g) {
@@ -771,14 +787,72 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
   async function loadAudio(c, part, key) {
     let cache = null;
-    try { cache = await caches.open("m1-audio"); const hit = await cache.match(key); if (hit) return await hit.arrayBuffer(); } catch (_) {}
+    try { cache = await caches.open("m1-audio"); const hit = await cache.match(key); if (hit) { audioReady.add(key); return await hit.arrayBuffer(); } } catch (_) {}
+    // Schnellweg: fertige Tonspur liegt neben der App (audio/), wenn sie zum aktuellen Kartentext passt.
+    const man = await getManifest(), m = man && man[c.id + "-" + part];
+    if (m && m.h === key.slice(key.lastIndexOf("-") + 1)) {
+      try {
+        const r = await fetch("audio/" + m.f);
+        if (r.ok) { const buf = await r.arrayBuffer(); try { if (cache) await cache.put(key, new Response(buf, { headers: { "Content-Type": "audio/mpeg" } })); } catch (_) {} audioReady.add(key); return buf; }
+      } catch (_) {}
+    }
     const res = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ k: KEY, audio: c.id, part }) });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || "audio");
     const bin = Uint8Array.from(atob(data.b64), ch => ch.charCodeAt(0));
     try { if (cache) await cache.put(key, new Response(bin, { headers: { "Content-Type": "audio/mpeg" } })); } catch (_) {}
+    audioReady.add(key);
     return bin.buffer;
   }
+  // Verzeichnis der Tonspuren auf GitHub (vom Workflow gepflegt); einmal pro App-Start frisch geladen.
+  let manifestP = null;
+  function getManifest() {
+    if (!manifestP) manifestP = fetch("audio/manifest.json", { cache: "no-cache" }).then(r => r.ok ? r.json() : null).catch(() => null);
+    return manifestP;
+  }
+  // ---------- Vorladen beim Öffnen ----------
+  const audioReady = new Set();
+  const pre = { running: false, total: 0, done: 0 };
+  function setRing() {
+    const ring = $("loadRing"), on = pre.running && pre.total > 0;
+    ring.classList.toggle("idle", !on);
+    const label = "Ton wird geladen, " + pre.done + " von " + pre.total;
+    ring.setAttribute("aria-label", label); ring.title = label;
+    $("loadArc").setAttribute("stroke-dashoffset", String(56.55 * (1 - (pre.total ? pre.done / pre.total : 0))));
+  }
+  function markSpeak() {
+    const c = session.current && cards.get(session.current), b = $("speakBtn");
+    if (!c || run.active) { b.classList.remove("wait"); return; }
+    b.classList.toggle("wait", pre.running && !audioReady.has(speechKey(c, session.revealed ? "a" : "q")));
+  }
+  async function preloadAudio() {
+    if (pre.running || !navigator.onLine || !KEY || !loaded) return;
+    const { due, fresh } = dueLists(endOfToday());
+    let cache = null; try { cache = await caches.open("m1-audio"); } catch (_) {}
+    const jobs = [];
+    for (const id of [...due, ...fresh]) {
+      const c = cards.get(id); if (!c) continue;
+      for (const part of ["q", "a"]) {
+        const key = speechKey(c, part);
+        if (audioReady.has(key)) continue;
+        let hit = false; try { hit = !!(cache && await cache.match(key)); } catch (_) {}
+        if (hit) audioReady.add(key); else jobs.push([c, part]);
+      }
+    }
+    if (!jobs.length) return;
+    pre.running = true; pre.total = jobs.length; pre.done = 0; setRing(); markSpeak();
+    let i = 0;
+    const worker = async () => {
+      while (i < jobs.length) {
+        const [c, part] = jobs[i++];
+        try { await getAudio(c, part); } catch (_) {}
+        pre.done++; setRing(); markSpeak();
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    pre.running = false; setRing(); markSpeak();
+  }
+  $("loadRing").addEventListener("click", () => toast("Ton wird geladen, " + pre.done + " von " + pre.total + ". Lernen geht schon."));
   function stopSpeech() {
     speakToken++;
     try { player.pause(); } catch (_) {}
@@ -802,7 +876,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
   async function speakCard(c, part) {
     stopSpeech(); const my = speakToken;
-    $("speakBtn").classList.add("busy");
+    $("speakBtn").classList.add("busy"); $("speakBtn").classList.remove("wait");
     try {
       const buf = await getAudio(c, part);
       if (my !== speakToken) return false;

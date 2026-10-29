@@ -1,0 +1,30 @@
+name: Tonspuren abgleichen
+on:
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/sync-audio.mjs", ".github/workflows/audio.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: audio-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node scripts/sync-audio.mjs
+      - name: Änderungen speichern
+        run: |
+          git add -A audio
+          if git diff --cached --quiet; then echo "Keine Änderungen"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898299+github-actions[bot]@users.noreply.github.com" commit -m "Tonspuren abgleichen"
+          git pull --rebase -q origin main
+          git push
