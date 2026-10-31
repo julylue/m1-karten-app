@@ -7,6 +7,10 @@
   "h": "70e2379a",
   "f": "diag-auf-01-q-0e000e13b2-elevenlabs.io.mp3"
  },
+ "diag-auf-02-a": {
+  "h": "21e8fa7f",
+  "f": "diag-auf-02-a-59c62a3679-elevenlabs.io.mp3"
+ },
  "diag-auf-02-q": {
   "h": "1492a76e",
   "f": "diag-auf-02-q-bf1fb35fcb-elevenlabs.io.mp3"
@@ -171,6 +175,10 @@
   "h": "b25ac3ff",
   "f": "s1028-05-q-4060d02e9d-elevenlabs.io.mp3"
  },
+ "s1028-06-a": {
+  "h": "f15b3262",
+  "f": "s1028-06-a-00a4b8a84e-elevenlabs.io.mp3"
+ },
  "s1028-06-q": {
   "h": "381ba084",
   "f": "s1028-06-q-126b7de7f3-elevenlabs.io.mp3"
@@ -199,9 +207,17 @@
   "h": "5c174b68",
   "f": "s1028-09-q-e88bd372ea-elevenlabs.io.mp3"
  },
+ "s1028-10-a": {
+  "h": "224311df",
+  "f": "s1028-10-a-73b4af7140-elevenlabs.io.mp3"
+ },
  "s1028-10-q": {
   "h": "8d1f872e",
   "f": "s1028-10-q-4d5311e924-elevenlabs.io.mp3"
+ },
+ "s1028-11-a": {
+  "h": "93ec5858",
+  "f": "s1028-11-a-9b700313b0-elevenlabs.io.mp3"
  },
  "s1028-11-q": {
   "h": "e9be62ab",
