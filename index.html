@@ -113,6 +113,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .ans.no { background: var(--no-bg); color: var(--no-ink); box-shadow: inset 0 0 0 2px var(--no-ring); }
 .ans.yes { background: var(--yes-bg); color: var(--yes-ink); }
 .ans:active { transform: scale(.98); }
+/* Auswahl-Karten: vier Antworten, eine richtig; die falschen liegen bewusst nah dran */
+.mc { display: grid; gap: 10px; width: 100%; }
+.mc button { text-align: left; padding: 14px 16px; border-radius: 14px; background: var(--field); box-shadow: inset 0 0 0 1.5px var(--line); font-size: 17px; line-height: 1.35; font-weight: 600; color: var(--ink); }
+.mc button.right { background: var(--hl); box-shadow: inset 0 0 0 2px var(--accent); color: var(--term); }
+.mc button.wrong { background: var(--no-bg); box-shadow: inset 0 0 0 2px var(--no-ink); color: var(--no-ink); }
+.mc.picked button:not(.right):not(.wrong) { opacity: .55; }
+.mc-note { font-size: 15px; color: var(--muted); margin: 0; }
 .swipe-hint { text-align: center; font-size: 13px; color: var(--muted); margin: -4px 0 0; }
 
 /* Fertig */
@@ -274,6 +281,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
         <div class="badge no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
         <h2 class="ask fit" id="cAsk"></h2>
         <div class="answer" id="cAnswer" hidden></div>
+        <div class="mc" id="cMc" hidden></div>
+        <p class="mc-note" id="mcNote" hidden></p>
         <div class="tap-hint" id="tapHint"><span class="touch-only">Tippen, um die Antwort zu sehen</span><span class="desk-only">Leertaste, Enter oder ↑ zeigt die Antwort</span></div>
       </article>
     </div>
@@ -281,6 +290,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       <button class="ans no" data-r="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Noch nicht</button>
       <button class="ans yes" data-r="3">Wusste ich<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
+    <button class="primary" id="mcNext" hidden>Weiter</button>
     <p class="swipe-hint" id="swipeHint" hidden><span class="touch-only">Oder die Karte nach links oder rechts wischen.</span><span class="desk-only">Oder ← und → auf der Tastatur. ↓ liest vor, F meldet die Karte.</span></p>
     <div class="runctl" id="runCtl" hidden>
       <button id="rPrev" aria-label="Vorherige Karte"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
@@ -407,7 +417,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "29.10. 14:15";
+  const APP_V = "31.10. 02:00";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -549,7 +559,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (el.scrollWidth > el.clientWidth + 1) el.classList.add("broken");
   }
   function fitAll() {
-    fit($("cAsk"), 26, 19);
+    if (isMc()) fit($("cAsk"), 22, 17); else fit($("cAsk"), 26, 19);
     $("cAnswer").querySelectorAll(".term").forEach(el => fit(el, 26, 17));
     $("cAnswer").querySelectorAll("li .t").forEach(el => fit(el, 20, 14));
   }
@@ -577,16 +587,41 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     }
     if (c.note) { const n = document.createElement("div"); n.className = "anote"; n.textContent = c.note; box.append(n); }
   }
+  // Auswahl-Karte: Spalte "auswahl" = "richtig | falsch | falsch | falsch"
+  function mcOpts(c) { const o = String(c.auswahl || "").split("|").map(x => x.trim()).filter(Boolean); return o.length >= 3 ? o : null; }
+  const isMc = () => !!(session.current && mcOpts(cards.get(session.current) || {}));
+  const mc = { picked: null, ok: null, order: [] };
+  function showMc(c) {
+    const o = mcOpts(c); mc.ok = o[0]; mc.picked = null; mc.order = shuffleInPlace(o.slice());
+    const box = $("cMc"); box.className = "mc"; box.replaceChildren();
+    mc.order.forEach((t, n) => { const b = document.createElement("button"); b.type = "button"; b.dataset.n = n; b.textContent = t; box.append(b); });
+    box.hidden = false; $("mcNote").hidden = true; $("mcNext").hidden = true;
+  }
+  function pickMc(n) {
+    if (mc.picked !== null || !session.current || run.active) return;
+    mc.picked = n; session.revealed = true;
+    const box = $("cMc"); box.classList.add("picked");
+    [...box.children].forEach((b, i) => { if (mc.order[i] === mc.ok) b.classList.add("right"); else if (i === n) b.classList.add("wrong"); });
+    const right = mc.order[n] === mc.ok;
+    $("mcNote").textContent = right ? "Richtig." : "Nicht ganz. Die Karte kommt gleich nochmal.";
+    $("mcNote").hidden = false; $("mcNext").hidden = false; $("mcNext").focus({ preventScroll: true });
+  }
+  function nextMc() { if (mc.picked === null) return; const right = mc.order[mc.picked] === mc.ok; $("mcNext").hidden = true; answer(right ? 2 : 1); }
+  $("cMc").addEventListener("click", e => { const b = e.target.closest("button"); if (b) pickMc(+b.dataset.n); });
+  $("mcNext").addEventListener("click", nextMc);
   function showCard(id) {
     const c = cards.get(id);
     session.current = id; session.revealed = false;
     const card = $("card");
     card.className = "card back-in"; card.style.transform = ""; resetStamps();
-    $("cType").textContent = (+c.stage === 1) ? "Aufzählen" : "Erkennen";
-    $("cAsk").innerHTML = askHtml(c.ask || c.q || "");
+    const isM = !!mcOpts(c);
+    $("cType").textContent = isM ? "Auswahl" : (+c.stage === 1) ? "Aufzählen" : "Erkennen";
+    $("cAsk").innerHTML = isM ? esc(c.q || c.ask || "") : askHtml(c.ask || c.q || "");
     fillAnswer(c);
-    $("cAnswer").hidden = true; $("tapHint").hidden = false;
+    $("cAnswer").hidden = true; $("tapHint").hidden = isM;
     $("answers").hidden = true; $("swipeHint").hidden = true;
+    $("mcNext").hidden = true; $("mcNote").hidden = true;
+    if (isM) showMc(c); else { $("cMc").hidden = true; $("cMc").replaceChildren(); }
     card.scrollTop = 0;
     requestAnimationFrame(fitAll);
     markSpeak();
@@ -604,7 +639,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     $("countText").textContent = session.done + " / " + session.total;
   }
   function reveal() {
-    if (run.active || session.revealed || !session.current) return;
+    if (run.active || session.revealed || !session.current || isMc()) return;
     session.revealed = true;
     $("cAnswer").hidden = false; $("tapHint").hidden = true; $("answers").hidden = false;
     $("swipeHint").hidden = session.seenHint && !matchMedia("(hover: hover) and (pointer: fine)").matches;
@@ -623,7 +658,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (g === 1) {
       session.misses++; session.queue.splice(Math.min(3, session.queue.length), 0, id);
       const md = missDay(); md.counts[id] = (md.counts[id] || 0) + 1; store.set("missDay", md);
-      mustWrite = md.counts[id] >= 2 && !md.written[id];
+      mustWrite = md.counts[id] >= 2 && !md.written[id] && !mcOpts(cards.get(id) || {});
     }
     else session.done++;
     pending.push({ id, st: next, r: g, t: now }); store.set("pending", pending);
@@ -707,6 +742,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   function begin(x, y) { sx = x; sy = y; dx = 0; active = true; horiz = null; tapCandidate = true; card.classList.remove("snap", "back-in"); card.classList.add("dragging"); }
   function move(x, y, ev) {
     if (!active || run.active) return;
+    if (isMc()) { tapCandidate = false; return; }
     dx = x - sx; const dy = y - sy;
     if (Math.abs(dx) > 6 || Math.abs(dy) > 6) tapCandidate = false;
     if (horiz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horiz = Math.abs(dx) > Math.abs(dy);
@@ -718,6 +754,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
   function end() {
     if (!active) return; active = false; card.classList.remove("dragging");
+    if (isMc()) { card.classList.remove("dragging"); return; }
     if (tapCandidate) { reveal(); return; }
     if (horiz && session.revealed && Math.abs(dx) > TH) { answer(dx > 0 ? 3 : 1); return; }
     card.classList.add("snap"); card.style.transform = ""; resetStamps();
@@ -725,7 +762,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   function cancel() { active = false; card.classList.remove("dragging"); card.classList.add("snap"); card.style.transform = ""; resetStamps(); }
   card.addEventListener("touchstart", e => { const t = e.touches[0]; begin(t.clientX, t.clientY); }, { passive: true });
   card.addEventListener("touchmove", e => { const t = e.touches[0]; move(t.clientX, t.clientY, e); }, { passive: false });
-  card.addEventListener("touchend", e => { if (tapCandidate && e.cancelable) e.preventDefault(); end(); }, { passive: false });
+  card.addEventListener("touchend", e => { if (tapCandidate && e.cancelable && !isMc()) e.preventDefault(); end(); }, { passive: false });
   card.addEventListener("touchcancel", cancel);
   card.addEventListener("pointerdown", e => { if (e.pointerType === "mouse") begin(e.clientX, e.clientY); });
   window.addEventListener("pointermove", e => { if (e.pointerType === "mouse") move(e.clientX, e.clientY, e); });
@@ -1225,6 +1262,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     }
     if (k === "f" || k === "F") return take(openFeedback);
     if (KEY_SPEAK.includes(k)) return take(() => $("speakBtn").click());
+    if (isMc()) {
+      if (mc.picked === null && /^[1-4]$/.test(k)) return take(() => pickMc(+k - 1));
+      if (mc.picked !== null && (k === "Enter" || k === " " || KEY_YES.includes(k))) return take(nextMc);
+      return;
+    }
     if (!session.revealed) { if (KEY_REVEAL.includes(k)) take(reveal); return; }
     if (KEY_NO.includes(k)) return take(() => answer(1));
     if (KEY_YES.includes(k)) return take(() => answer(3));
