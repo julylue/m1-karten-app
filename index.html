@@ -152,6 +152,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--soft); padding: 4px; border-radius: 12px; }
 .seg button { padding: 10px; border-radius: 9px; font-weight: 600; font-size: 15px; }
 .seg button.on { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.seg5 { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.seg5 button { padding: 10px 2px; }
+.picks { display: grid; gap: 8px; }
+.pick-opt { display: flex; justify-content: space-between; align-items: center; text-align: left; padding: 14px 16px; border-radius: 14px; background: var(--soft); font-weight: 600; font-size: 17px; color: var(--ink); }
+.pick-opt b { color: var(--term); font-variant-numeric: tabular-nums; }
+.pick-opt.on { box-shadow: inset 0 0 0 2px var(--accent); background: var(--card); }
+.primary:disabled { opacity: .45; }
 .runctl { display: flex; justify-content: center; align-items: center; gap: 22px; padding: 4px 0; }
 .runctl button { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); background: var(--card); box-shadow: var(--shadow); }
 .runctl button.big { width: 68px; height: 68px; background: var(--yes-bg); color: var(--yes-ink); }
@@ -257,6 +264,27 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       <p class="note" id="netNote" hidden></p>
     </div>
     <button class="primary" id="startBtn" hidden>Los geht's</button>
+    <button class="skip" id="pickBtn" hidden>Bestimmte Karten üben</button>
+  </section>
+
+  <section class="screen" id="pick" hidden>
+    <div class="ov-head">
+      <button class="close" id="pkBack" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h1>Was willst du üben?</h1>
+    </div>
+    <div class="setup">
+      <div class="picks" id="pkSet">
+        <button class="pick-opt on" data-set="due" aria-pressed="true"><span>Heute dran</span><b id="pkN-due">0</b></button>
+        <button class="pick-opt" data-set="hard" aria-pressed="false"><span>Oft falsch</span><b id="pkN-hard">0</b></button>
+        <button class="pick-opt" data-set="new" aria-pressed="false"><span>Neu</span><b id="pkN-new">0</b></button>
+        <button class="pick-opt" data-set="all" aria-pressed="false"><span>Alle</span><b id="pkN-all">0</b></button>
+      </div>
+      <div class="lab"><span>Kurs</span></div>
+      <div class="seg seg5" id="pkCourse"><button data-c="all" class="on" aria-pressed="true">Alle</button><button data-c="Psy" aria-pressed="false">Psy</button><button data-c="FoM" aria-pressed="false">FoM</button><button data-c="KuV" aria-pressed="false">KuV</button><button data-c="Stat" aria-pressed="false">Stat</button></div>
+      <p class="note" id="pkNote"></p>
+    </div>
+    <div class="home-main"></div>
+    <button class="primary" id="pkStart">Starten</button>
   </section>
 
   <section class="screen" id="review" hidden>
@@ -393,7 +421,10 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 (() => {
   // ---------- FSRS-5 (Standardparameter, Zielbehaltensrate 90 %) ----------
   const W = [0.40255, 1.18385, 3.173, 15.69105, 7.1949, 0.5345, 1.4604, 0.0046, 1.54575, 0.1192, 1.01925, 1.9395, 0.11, 0.29605, 2.2698, 0.2315, 2.9898, 0.51655, 0.6621];
-  const DECAY = -0.5, FACTOR = 19 / 81, DAY = 86400000, RELEARN_MS = 10 * 60000;
+  // Nicht gewusst: die Karte kommt einmal am Ende der Runde, danach erst am nächsten Tag (Successive Relearning statt Minuten-Schleife).
+  const DECAY = -0.5, FACTOR = 19 / 81, DAY = 86400000, RELEARN_MS = DAY;
+  // Höchstens so viele neue Karten pro Tag im normalen Stapel. Karten mit so vielen Fehlern, die zuletzt nicht saßen, pausieren und gehen in die Session mit Claude.
+  const NEW_PER_DAY = 10, LEECH_LAPSES = 4;
   const clampD = d => Math.min(10, Math.max(1, d));
   const D0 = g => clampD(W[4] - Math.exp(W[5] * (g - 1)) + 1);
   const retr = (t, s) => Math.pow(1 + FACTOR * t / s, DECAY);
@@ -417,7 +448,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "31.10. 02:00";
+  const APP_V = "03.11. 03:30";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -485,25 +516,54 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Hilfen ----------
-  const screens = ["home", "review", "done", "overview", "reset", "runSetup", "write"];
+  const screens = ["home", "review", "done", "overview", "reset", "runSetup", "write", "pick"];
   const show = name => screens.forEach(s => { $(s).hidden = s !== name; });
   let toastTimer;
   function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3500); }
   const endOfToday = () => { const d = new Date(); d.setHours(23, 59, 59, 999); return d.getTime(); };
   function shuffleInPlace(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-  function dueLists(now) {
-    const due = [], fresh = [];
-    for (const [id] of cards) {
+  const isLeech = id => { const st = states.get(id); return !!(st && st.reps && st.lapses >= LEECH_LAPSES && st.lastRating === 1); };
+  function newDay() {
+    const today = new Date().toDateString();
+    const nd = store.get("newDay", null);
+    return nd && nd.day === today ? nd : { day: today, ids: [] };
+  }
+  function courseOf(c) {
+    const t = String(c.topic || "");
+    if (/^FoM/i.test(t)) return "FoM";
+    if (/^KuV/i.test(t)) return "KuV";
+    if (/^Stat/i.test(t)) return "Stat";
+    return "Psy";
+  }
+  // Leicht vor schwer: Aufzählen vor Erkennen, innerhalb jeder Gruppe zufällig (Reihenfolge darf nichts verraten)
+  function byStage(ids) {
+    const rnd = new Map(ids.map(id => [id, Math.random()]));
+    return ids.sort((a, b) => ((cards.get(a).stage || 9) - (cards.get(b).stage || 9)) || (rnd.get(a) - rnd.get(b)));
+  }
+  function dueLists(now, course) {
+    const due = [], freshAll = [], parked = [];
+    for (const [id, c] of cards) {
       if (isPaused(id)) continue;
+      if (course && course !== "all" && courseOf(c) !== course) continue;
       const st = states.get(id);
-      if (!st || !st.reps) fresh.push(id); else if (st.due <= now) due.push(id);
+      if (!st || !st.reps) freshAll.push(id);
+      else if (isLeech(id)) parked.push(id);
+      else if (st.due <= now) due.push(id);
     }
     due.sort((a, b) => states.get(a).due - states.get(b).due);
-    // Neue Karten: Aufzählen vor Erkennen, innerhalb jeder Gruppe zufällig (Reihenfolge darf nichts verraten)
-    const rnd = new Map(fresh.map(id => [id, Math.random()]));
-    fresh.sort((a, b) => ((cards.get(a).stage || 9) - (cards.get(b).stage || 9)) || (rnd.get(a) - rnd.get(b)));
+    byStage(freshAll);
+    const fresh = freshAll.slice(0, Math.max(0, NEW_PER_DAY - newDay().ids.length));
     if (store.get("shuffle", false)) shuffleInPlace(due);
-    return { due, fresh };
+    return { due, fresh, waiting: freshAll.length - fresh.length, parked, freshAll };
+  }
+  // Auswahl zum gezielten Üben
+  function pickList(set, course) {
+    const inCourse = id => course === "all" || courseOf(cards.get(id)) === course;
+    const ids = [...cards.keys()].filter(id => !isPaused(id) && inCourse(id));
+    if (set === "due") { const { due, fresh } = dueLists(endOfToday(), course); return [...due, ...fresh]; }
+    if (set === "hard") return byStage(ids.filter(id => { const st = states.get(id); return st && st.reps && st.lapses >= 2; }));
+    if (set === "new") return byStage(ids.filter(id => { const st = states.get(id); return !st || !st.reps; }));
+    return byStage(ids);
   }
   function fmtWhen(ts) {
     const days = Math.round((new Date(ts).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / DAY);
@@ -515,35 +575,42 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   // ---------- Übersicht ----------
   function renderHome() {
     if (session.active || !loaded) return;
-    const { due, fresh } = dueLists(endOfToday());
+    const { due, fresh, waiting, parked } = dueLists(endOfToday());
     const total = due.length + fresh.length;
     $("dueBig").textContent = total;
     if (!cards.size) {
       $("dueText").textContent = "Noch keine Karten";
       $("chips").replaceChildren();
       $("homeNote").textContent = "Neue Karten kommen nach jeder Lernsession dazu."; $("homeNote").hidden = false;
-      $("startBtn").hidden = true; return;
+      $("startBtn").hidden = true; $("pickBtn").hidden = true; return;
     }
+    $("pickBtn").hidden = false;
     $("dueText").textContent = total === 1 ? "Karte für heute" : "Karten für heute";
     const chips = [];
     if (fresh.length) chips.push(chip(fresh.length + " neu"));
     if (due.length) chips.push(chip(due.length + " zum Wiederholen"));
     chips.push(chip([...cards.keys()].filter(id => !isPaused(id)).length + " insgesamt"));
     $("chips").replaceChildren(...chips);
-    if (total) { $("homeNote").hidden = true; $("startBtn").hidden = false; }
+    const notes = [];
+    if (waiting) notes.push(waiting + " neue " + (waiting === 1 ? "Karte wartet" : "Karten warten") + " auf die nächsten Tage (höchstens " + NEW_PER_DAY + " neue pro Tag).");
+    if (parked.length) notes.push(parked.length + (parked.length === 1 ? " Karte sitzt" : " Karten sitzen") + " nach vielen Versuchen nicht. Sie " + (parked.length === 1 ? "pausiert" : "pausieren") + " und " + (parked.length === 1 ? "kommt" : "kommen") + " in die nächste Session mit Claude.");
+    if (total) { $("startBtn").hidden = false; }
     else {
       let next = Infinity;
-      for (const st of states.values()) if (st.reps && st.due > Date.now()) next = Math.min(next, st.due);
-      $("homeNote").textContent = next < Infinity ? "Alles erledigt. Die nächste Karte ist " + fmtWhen(next) + " dran." : "Alles erledigt.";
-      $("homeNote").hidden = false; $("startBtn").hidden = true;
+      for (const [id, st] of states) if (st.reps && st.due > Date.now() && !isLeech(id)) next = Math.min(next, st.due);
+      notes.unshift(next < Infinity ? "Alles erledigt. Die nächste Karte ist " + fmtWhen(next) + " dran." : "Alles erledigt.");
+      $("startBtn").hidden = true;
     }
+    $("homeNote").textContent = notes.join(" ");
+    $("homeNote").hidden = !notes.length;
   }
 
   // ---------- Abfrage ----------
-  const session = { active: false, queue: [], total: 0, done: 0, misses: 0, current: null, revealed: false, seenHint: store.get("seenHint", false) };
-  function startSession() {
-    const { due, fresh } = dueLists(endOfToday());
-    session.queue = [...due, ...fresh];
+  const session = { active: false, queue: [], total: 0, done: 0, misses: 0, current: null, revealed: false, mode: "due", requeued: new Set(), seenHint: store.get("seenHint", false) };
+  function startSession(list, mode) {
+    if (!Array.isArray(list)) { const { due, fresh } = dueLists(endOfToday()); list = [...due, ...fresh]; mode = "due"; }
+    if (!list.length) return;
+    session.queue = list.slice(); session.mode = mode || "due"; session.requeued = new Set();
     session.total = session.queue.length; session.done = 0; session.misses = 0; session.active = true;
     unlockAudio();
     show("review"); nextCard();
@@ -603,7 +670,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     const box = $("cMc"); box.classList.add("picked");
     [...box.children].forEach((b, i) => { if (mc.order[i] === mc.ok) b.classList.add("right"); else if (i === n) b.classList.add("wrong"); });
     const right = mc.order[n] === mc.ok;
-    $("mcNote").textContent = right ? "Richtig." : "Nicht ganz. Die Karte kommt gleich nochmal.";
+    $("mcNote").textContent = right ? "Richtig." : (session.requeued.has(session.current) ? "Nicht ganz. Die Karte kommt morgen wieder." : "Nicht ganz. Die Karte kommt am Ende der Runde nochmal.");
     $("mcNote").hidden = false; $("mcNext").hidden = false; $("mcNext").focus({ preventScroll: true });
   }
   function nextMc() { if (mc.picked === null) return; const right = mc.order[mc.picked] === mc.ok; $("mcNext").hidden = true; answer(right ? 2 : 1); }
@@ -651,12 +718,17 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (run.active || !session.revealed || !session.current) return;
     if (!session.seenHint) { session.seenHint = true; store.set("seenHint", true); }
     const id = session.current, now = Date.now();
-    const next = schedule(states.get(id), g, now);
+    const prev = states.get(id);
+    if (!prev || !prev.reps) { const nd = newDay(); if (!nd.ids.includes(id)) { nd.ids.push(id); store.set("newDay", nd); } }
+    const next = schedule(prev, g, now);
     states.set(id, next);
     noteSession(id, g, now);
     let mustWrite = false;
     if (g === 1) {
-      session.misses++; session.queue.splice(Math.min(3, session.queue.length), 0, id);
+      session.misses++;
+      // Einmal ans Ende der Runde, beim zweiten Mal erst morgen wieder
+      if (!session.requeued.has(id)) { session.requeued.add(id); session.queue.push(id); }
+      else session.done++;
       const md = missDay(); md.counts[id] = (md.counts[id] || 0) + 1; store.set("missDay", md);
       mustWrite = md.counts[id] >= 2 && !md.written[id] && !mcOpts(cards.get(id) || {});
     }
@@ -674,9 +746,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   function finish() {
     stopSpeech();
     session.active = false; session.current = null;
-    $("doneTitle").textContent = "Für heute alles wiederholt.";
+    $("doneTitle").textContent = session.mode === "due" ? "Für heute alles wiederholt." : "Runde fertig.";
     $("doneText").textContent = session.misses
-      ? `${session.total} Karten. ${session.misses}-mal "Noch nicht", diese Karten kommen bald wieder.`
+      ? `${session.total} Karten. ${session.misses}-mal "Noch nicht", diese Karten kommen morgen wieder.`
       : `${session.total} Karten, alle beim ersten Versuch gewusst.`;
     show("done");
   }
@@ -1218,6 +1290,29 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   });
   $("flagBtn").addEventListener("click", openFeedback);
 
+  // ---------- Bestimmte Karten üben ----------
+  const pick = { set: "due", course: "all" };
+  const PICK_NOTE = {
+    due: "Wie „Los geht's“: fällige Karten und bis zu " + NEW_PER_DAY + " neue.",
+    hard: "Karten, die du mindestens zweimal nicht wusstest. Auch die pausierten sind hier drin.",
+    new: "Alle Karten, die du noch nie gesehen hast, ohne Tagesgrenze.",
+    all: "Alle Karten, leichte zuerst."
+  };
+  function renderPick() {
+    let n = 0;
+    ["due", "hard", "new", "all"].forEach(s => { const len = pickList(s, pick.course).length; $("pkN-" + s).textContent = len; if (s === pick.set) n = len; });
+    $("pkSet").querySelectorAll(".pick-opt").forEach(b => { const on = b.dataset.set === pick.set; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
+    $("pkCourse").querySelectorAll("button").forEach(b => { const on = b.dataset.c === pick.course; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
+    $("pkNote").textContent = PICK_NOTE[pick.set] + " Deine Antworten zählen wie immer.";
+    $("pkStart").textContent = n ? (n === 1 ? "1 Karte üben" : n + " Karten üben") : "Keine Karten";
+    $("pkStart").disabled = !n;
+  }
+  $("pickBtn").addEventListener("click", () => { renderPick(); show("pick"); });
+  $("pkBack").addEventListener("click", () => { show("home"); renderHome(); });
+  $("pkSet").addEventListener("click", e => { const b = e.target.closest(".pick-opt"); if (!b) return; pick.set = b.dataset.set; renderPick(); });
+  $("pkCourse").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; pick.course = b.dataset.c; renderPick(); });
+  $("pkStart").addEventListener("click", () => { const list = pickList(pick.set, pick.course); if (list.length) startSession(list, pick.set); });
+
   // ---------- Bedienung ----------
   $("startBtn").addEventListener("click", startSession);
   $("answers").addEventListener("click", e => { const b = e.target.closest(".ans"); if (b) answer(+b.dataset.r); });
@@ -1250,6 +1345,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     }
     if (inField) return;
     if (visible("home")) { if (k === "Enter" && visible("startBtn")) take(() => $("startBtn").click()); return; }
+    if (visible("pick")) { if (k === "Escape") take(() => $("pkBack").click()); else if (k === "Enter" && !$("pkStart").disabled) take(() => $("pkStart").click()); return; }
     if (visible("done")) { if (k === "Enter") take(() => $("homeBtn").click()); return; }
     if (!visible("review")) return;
     if (k === "Escape") return take(() => $("closeBtn").click());
