@@ -485,7 +485,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 03:10";
+  const APP_V = "04.11. 03:15";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -812,6 +812,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (session.lvl === 1) $("card").insertBefore(note, $("cAnswer"));
     $("mcCheck").hidden = true; $("mcNext").hidden = false; $("mcNext").focus({ preventScroll: true });
     markSpeak();
+    // Richtig: kurz bestätigen und automatisch weiter. Falsch: stehen lassen, damit die Korrektur gelesen werden kann.
+    if (right) { const id = session.current; setTimeout(() => { if (session.current === id && session.okNow === true && !$("mcNext").hidden) nextMc(); }, session.lvl === 1 ? 1400 : 800); }
   }
   function pickMc(n) {
     if (mc.picked !== null || !session.current || run.active || session.lvl !== 0) return;
