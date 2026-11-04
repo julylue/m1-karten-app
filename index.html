@@ -452,7 +452,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 (() => {
   // ---------- FSRS-5 (Standardparameter, Zielbehaltensrate 90 %) ----------
   const W = [0.40255, 1.18385, 3.173, 15.69105, 7.1949, 0.5345, 1.4604, 0.0046, 1.54575, 0.1192, 1.01925, 1.9395, 0.11, 0.29605, 2.2698, 0.2315, 2.9898, 0.51655, 0.6621];
-  // Nicht gewusst: die Karte kommt einmal am Ende der Runde, danach erst am nächsten Tag (Successive Relearning statt Minuten-Schleife).
+  // Nicht gewusst: die Karte kommt nach REQUEUE_GAP Karten einmal wieder, danach erst am nächsten Tag (Successive Relearning statt Minuten-Schleife).
+  const REQUEUE_GAP = 5;
   const DECAY = -0.5, FACTOR = 19 / 81, DAY = 86400000, RELEARN_MS = DAY;
   // Neue Karten pro Tag passen sich an: so viele, dass die wartenden Karten in etwa einer Woche dran waren, mindestens 10, höchstens 25.
   // Karten mit so vielen Fehlern, die zuletzt nicht saßen, pausieren und gehen in die Session mit Claude.
@@ -490,7 +491,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 03:25";
+  const APP_V = "04.11. 03:30";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -804,7 +805,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     box.hidden = false; $("mcNote").hidden = true; $("mcNext").hidden = true;
     $("mcCheck").hidden = !mc.multi; $("mcCheck").disabled = true;
   }
-  function missNote() { return session.requeued.has(session.current) ? "Nicht ganz." : "Nicht ganz. Die Karte kommt am Ende der Runde nochmal."; }
+  function missNote() { return session.requeued.has(session.current) ? "Nicht ganz." : "Nicht ganz. Die Karte kommt gleich nochmal."; }
   function settle(right, text) {
     session.okNow = right; session.revealed = true;
     const note = $("mcNote");
@@ -928,8 +929,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     let mustWrite = false;
     if (g === 1) {
       session.misses++;
-      // Einmal ans Ende der Runde, beim zweiten Mal erst morgen wieder; dann einmal aufschreiben (egal auf welcher Stufe)
-      if (!session.requeued.has(id)) { session.requeued.add(id); session.queue.push(id); }
+      // Einmal nach ein paar Karten nochmal (nicht erst am Rundenende, falls die Runde abgebrochen wird), beim zweiten Mal erst morgen wieder; dann einmal aufschreiben (egal auf welcher Stufe)
+      if (!session.requeued.has(id)) { session.requeued.add(id); session.queue.splice(Math.min(REQUEUE_GAP, session.queue.length), 0, id); }
       else { session.done++; mustWrite = true; }
     }
     else session.done++;
