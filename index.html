@@ -118,8 +118,25 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .mc button { text-align: left; padding: 14px 16px; border-radius: 14px; background: var(--field); box-shadow: inset 0 0 0 1.5px var(--line); font-size: 17px; line-height: 1.35; font-weight: 600; color: var(--ink); }
 .mc button.right { background: var(--hl); box-shadow: inset 0 0 0 2px var(--accent); color: var(--term); }
 .mc button.wrong { background: var(--no-bg); box-shadow: inset 0 0 0 2px var(--no-ink); color: var(--no-ink); }
-.mc.picked button:not(.right):not(.wrong) { opacity: .55; }
+.mc.picked button:not(.right):not(.wrong):not(.missed) { opacity: .55; }
+/* Aufzählen auswählen: mehrere antippen, dann prüfen */
+.mc.multi button { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px; align-items: center; }
+.mc.multi button::before { content: ""; width: 22px; height: 22px; border-radius: 7px; box-shadow: inset 0 0 0 2px var(--field-line); }
+.mc.multi button.sel { background: var(--card); box-shadow: inset 0 0 0 2px var(--accent); }
+.mc.multi button.sel::before { background: var(--accent); box-shadow: none; }
+.mc.multi button.chk::before { background: currentColor; box-shadow: none; }
+.mc button.missed { background: var(--field); box-shadow: none; outline: 2px dashed var(--accent); outline-offset: -2px; color: var(--term); }
 .mc-note { font-size: 15px; color: var(--muted); margin: 0; }
+.mc-note.ok { color: var(--term); font-weight: 600; }
+.mc-note.no { color: var(--no-ink); font-weight: 600; }
+/* Richtig oder falsch */
+.tf { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tf button { padding: 18px 10px; border-radius: 16px; font-size: 17px; font-weight: 700; background: var(--card); color: var(--ink); box-shadow: inset 0 0 0 2px var(--line); }
+.tf button:active { transform: scale(.98); }
+.answer .aq { font-size: 15px; line-height: 1.4; color: var(--muted); margin: 0 0 10px; }
+/* Abfragestufe der Karte */
+.tl-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.lvl { font-size: 13px; font-weight: 600; color: var(--muted); background: var(--soft); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
 .swipe-hint { text-align: center; font-size: 13px; color: var(--muted); margin: -4px 0 0; }
 
 /* Fertig */
@@ -223,15 +240,15 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .write-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
 .write-card { background: var(--card); border-radius: 24px; box-shadow: var(--shadow); padding: 24px; display: grid; gap: 16px; }
 .write-card .wq { font-size: 17px; font-weight: 600; line-height: 1.35; margin: 0; color: var(--muted); }
-.wrow { display: grid; gap: 8px; }
-.wrows { display: grid; gap: 18px; }
-.wrow .wt { font-size: 20px; font-weight: 800; color: var(--term); line-height: 1.2; overflow-wrap: anywhere; }
-.wrow .wbox { position: relative; }
-.wrow input { width: 100%; font: inherit; font-size: 17px; padding: 12px 44px 12px 14px; border-radius: 14px; border: 1.5px solid var(--field-line); background: var(--field); color: var(--ink); }
-.wrow input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.wrow .ok { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; color: var(--term); opacity: 0; transition: opacity .15s; }
-.wrow.done .ok { opacity: 1; }
-.wrow.done input { border-color: var(--term); }
+.write-card .answer { border-top: 0; padding-top: 0; }
+.wlab { font-size: 17px; font-weight: 700; }
+.wtext { width: 100%; min-height: 80px; font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--field-line); background: var(--field); color: var(--ink); resize: none; }
+.wtext:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.wtext.done { border-color: var(--term); }
+.wstat { margin: -6px 0 0; font-size: 15px; color: var(--muted); min-height: 1.4em; }
+.wstat.done { color: var(--term); font-weight: 600; }
+.secondary { width: 100%; padding: 15px; border-radius: 16px; background: var(--soft); color: var(--ink); font-size: 17px; font-weight: 700; }
+.secondary:active { transform: scale(.985); }
 .skip { align-self: center; font-size: 15px; color: var(--muted); min-height: 44px; padding: 0 16px; text-decoration: underline; text-underline-offset: 3px; }
 .primary:disabled { opacity: .45; }
 .appver { font-size: 13px; color: var(--muted); padding: 6px 14px 4px; }
@@ -296,7 +313,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       <span class="count" id="countText"></span>
     </div>
     <div class="typeline">
-      <span class="eyebrow" id="cType"></span>
+      <span class="tl-left"><span class="eyebrow" id="cType"></span><span class="lvl" id="cLvl" hidden></span></span>
       <span class="tools">
       <button class="flag" id="flagBtn" aria-label="Karte melden" title="Karte melden (F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg></button>
       <button class="speak" id="speakBtn" aria-label="Vorlesen" title="Vorlesen (↓)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
@@ -318,6 +335,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       <button class="ans no" data-r="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Noch nicht</button>
       <button class="ans yes" data-r="3">Wusste ich<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
+    <div class="tf" id="tf" hidden>
+      <button type="button" data-v="0">Stimmt nicht</button>
+      <button type="button" data-v="1">Stimmt</button>
+    </div>
+    <button class="primary" id="mcCheck" hidden disabled>Prüfen</button>
     <button class="primary" id="mcNext" hidden>Weiter</button>
     <p class="swipe-hint" id="swipeHint" hidden><span class="touch-only">Oder die Karte nach links oder rechts wischen.</span><span class="desk-only">Oder ← und → auf der Tastatur. ↓ liest vor, F meldet die Karte.</span></p>
     <div class="runctl" id="runCtl" hidden>
@@ -328,16 +350,19 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   </section>
 
   <section class="screen" id="write" hidden>
-    <div class="topline"><span class="eyebrow">Einmal schreiben</span></div>
+    <div class="topline"><span class="eyebrow">Einmal aufschreiben</span></div>
     <div class="write-main">
-      <p class="note" id="wNote">Zweimal "Noch nicht" bei dieser Karte. Schreib den Begriff einmal.</p>
+      <p class="note" id="wNote">Zweimal falsch in dieser Runde. Das ist die richtige Antwort.</p>
       <div class="write-card">
         <p class="wq" id="wAsk"></p>
-        <div id="wRows" class="wrows"></div>
+        <div class="answer" id="wAns"></div>
       </div>
-      <button class="skip" id="wSkip">Überspringen</button>
+      <label class="wlab" for="wText">Schreib es einmal auf</label>
+      <textarea class="wtext" id="wText" rows="2" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="hier abtippen"></textarea>
+      <p class="wstat" id="wStat" aria-live="polite"></p>
     </div>
     <button class="primary" id="wNext" disabled>Weiter</button>
+    <button class="secondary" id="wPaper">Auf Papier geschrieben</button>
   </section>
 
   <section class="screen" id="done" hidden>
@@ -459,7 +484,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 02:15";
+  const APP_V = "04.11. 02:30";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -475,9 +500,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   const isPaused = id => fbPending.some(f => f.id === id && f.reason !== "allgemein");
 
   const $ = id => document.getElementById(id);
+  // Spalte aktiv = "nein": Karte wird überall ignoriert (nicht fällig, nicht neu, nicht gezählt, nicht in Übungslisten).
+  const isActive = c => String(c.aktiv == null ? "" : c.aktiv).trim().toLowerCase() !== "nein";
   function applyServer(data) {
     cards.clear();
-    (data.cards || []).forEach(c => cards.set(String(c.id), c));
+    (data.cards || []).forEach(c => { if (isActive(c)) cards.set(String(c.id), c); });
     // Die Tabelle ist die Quelle: Stand komplett übernehmen, nur noch nicht übertragene Antworten behalten.
     const srv = data.state || {};
     states.clear();
@@ -488,7 +515,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   function loadCache() {
     const c = store.get("cache", null);
     if (!c) return false;
-    c.cards.forEach(x => cards.set(String(x.id), x));
+    c.cards.forEach(x => { if (isActive(x)) cards.set(String(x.id), x); });
     Object.entries(c.state || {}).forEach(([k, v]) => states.set(k, v));
     pending.forEach(p => states.set(p.id, p.st));
     loaded = true;
@@ -609,7 +636,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (total) { $("startBtn").hidden = false; }
     else {
       let next = Infinity;
-      for (const [id, st] of states) if (st.reps && st.due > Date.now() && !isLeech(id)) next = Math.min(next, st.due);
+      for (const [id, st] of states) if (cards.has(id) && st.reps && st.due > Date.now() && !isLeech(id)) next = Math.min(next, st.due);
       notes.unshift(next < Infinity ? "Alles erledigt. Die nächste Karte ist " + fmtWhen(next) + " dran." : "Alles erledigt.");
       $("startBtn").hidden = true;
     }
@@ -618,7 +645,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Abfrage ----------
-  const session = { active: false, queue: [], total: 0, done: 0, misses: 0, current: null, revealed: false, mode: "due", requeued: new Set(), seenHint: store.get("seenHint", false) };
+  const session = { active: false, queue: [], total: 0, done: 0, misses: 0, current: null, revealed: false, mode: "due", requeued: new Set(), seenHint: store.get("seenHint", false), lvl: 2, okNow: null };
   function startSession(list, mode) {
     if (!Array.isArray(list)) { const { due, fresh } = dueLists(endOfToday()); list = [...due, ...fresh]; mode = "due"; }
     if (!list.length) return;
@@ -641,10 +668,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (isMc()) fit($("cAsk"), 22, 17); else fit($("cAsk"), 26, 19);
     $("cAnswer").querySelectorAll(".term").forEach(el => fit(el, 26, 17));
     $("cAnswer").querySelectorAll("li .t").forEach(el => fit(el, 20, 14));
+    if (!$("write").hidden) {
+      $("wAns").querySelectorAll(".term").forEach(el => fit(el, 26, 17));
+      $("wAns").querySelectorAll("li .t").forEach(el => fit(el, 20, 14));
+    }
   }
-  function fillAnswer(c) {
-    const box = $("cAnswer"); box.replaceChildren();
-    const raw = String(c.a || "");
+  function fillAnswer(c, box) {
+    box = box || $("cAnswer"); box.replaceChildren();
+    const raw = String(c.a || "") || ((mcOpts(c) || [])[0] || "");
     const parts = raw.split(";").map(s => s.trim()).filter(Boolean);
     if (parts.length > 1) {
       const ol = document.createElement("ol");
@@ -666,41 +697,188 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     }
     if (c.note) { const n = document.createElement("div"); n.className = "anote"; n.textContent = c.note; box.append(n); }
   }
-  // Auswahl-Karte: Spalte "auswahl" = "richtig | falsch | falsch | falsch"
+  // Auswahl-Karte (Erkennen): Spalte "auswahl" = "richtig | falsch | falsch | falsch"
   function mcOpts(c) { const o = String(c.auswahl || "").split("|").map(x => x.trim()).filter(Boolean); return o.length >= 3 ? o : null; }
-  const isMc = () => !!(session.current && mcOpts(cards.get(session.current) || {}));
-  const mc = { picked: null, ok: null, order: [] };
+
+  // ---------- Stufenleiter ----------
+  // Jede Karte hat eine Abfragestufe: 0 Auswählen, 1 Richtig oder falsch, 2 Selbst nennen.
+  // Zwei richtige Antworten in Folge auf einer Stufe = eine Stufe höher, eine falsche = eine tiefer (nicht unter Auswählen).
+  // Fehlen die Daten für eine Stufe oder ist die Karte nicht geprüft (Spalte geprueft = "ja"), wird die Stufe übersprungen.
+  // Stand je Gerät im localStorage ("ladder"): Die Tabelle liefert pro Karte nur den FSRS-Zustand, keine Antwortfolge.
+  const LV_NAMES = ["Auswählen", "Richtig oder falsch", "Selbst nennen"];
+  const OK_G = 3; // Richtig in Auswählen und Richtig oder falsch zählt wie "Wusste ich"
+  const isJa = v => String(v == null ? "" : v).trim().toLowerCase() === "ja";
+  const isBlank = v => String(v == null ? "" : v).trim() === "";
+  // Aufzählen: richtige Begriffe aus a plus Ablenker aus auswahl (dort stehen bei Aufzählen-Karten nur falsche Begriffe)
+  function listOpts(c) {
+    const right = termsOf(c);
+    const seen = new Set(right.map(normX));
+    const wrong = [];
+    String(c.auswahl || "").split("|").map(x => x.trim()).filter(Boolean).forEach(x => { const k = normX(x); if (k && !seen.has(k)) { seen.add(k); wrong.push(x); } });
+    return right.length && wrong.length ? { right, wrong } : null;
+  }
+  // Spalte aussagen: "Aussagetext ## wahr || Aussagetext ## falsch || ..."
+  function stmtsOf(c) {
+    return String(c.aussagen || "").split("||").map(s => {
+      const i = s.lastIndexOf("##"); if (i < 0) return null;
+      const t = s.slice(0, i).trim(), v = s.slice(i + 2).trim().toLowerCase();
+      if (!t || (v !== "wahr" && v !== "falsch")) return null;
+      return { t, ok: v === "wahr" };
+    }).filter(Boolean);
+  }
+  // Alte Auswahl-Karten (Erkennen, auswahl vorhanden, geprueft leer) dürfen Auswählen weiter nutzen.
+  const legacyMc = c => +c.stage !== 1 && !!mcOpts(c) && isBlank(c.geprueft);
+  function levelsOf(c) {
+    const lv = [], ok = isJa(c.geprueft);
+    if (+c.stage === 1) { if (ok && listOpts(c)) lv.push(0); }
+    else if (mcOpts(c) && (ok || isBlank(c.geprueft))) lv.push(0);
+    if (ok && stmtsOf(c).length) lv.push(1);
+    if (termsOf(c).length || !lv.length) lv.push(2);
+    return lv;
+  }
+  let ladder = store.get("ladder", {}) || {};
+  function storedLevel(id) {
+    const e = ladder[id]; if (e) return e;
+    // Ohne Eintrag: neue Karten starten in Auswählen. Bereits gelernte Karten wurden bisher frei abgefragt und starten dort,
+    // alte Auswahl-Karten bleiben in Auswählen. Ein Fehler stuft ohnehin ab.
+    const st = states.get(id), c = cards.get(id) || {};
+    return { l: st && st.reps && !legacyMc(c) ? 2 : 0, s: 0 };
+  }
+  function levelFor(id) {
+    const c = cards.get(id); if (!c) return 2;
+    const lv = levelsOf(c), want = storedLevel(id).l;
+    const up = lv.find(x => x >= want);
+    return up !== undefined ? up : lv[lv.length - 1];
+  }
+  // Für "Heute zurücksetzen": Stand vor der ersten Änderung des Tages merken
+  function snapLadder(id) {
+    const today = new Date().toDateString();
+    let sn = store.get("ladderSnap", null);
+    if (!sn || sn.day !== today) sn = { day: today, vals: {} };
+    if (!(id in sn.vals)) { sn.vals[id] = ladder[id] || null; store.set("ladderSnap", sn); }
+  }
+  function ladderStep(id, used, right) {
+    const c = cards.get(id); if (!c) return;
+    const lv = levelsOf(c);
+    snapLadder(id);
+    const st = storedLevel(id), streak = st.l === used ? st.s : 0;
+    let next;
+    if (right) {
+      const s = streak + 1;
+      const up = lv.find(x => x > used);
+      next = s >= 2 && up !== undefined ? { l: up, s: 0 } : { l: used, s: Math.min(s, 2) };
+    } else {
+      const down = lv.filter(x => x < used).pop();
+      next = { l: down !== undefined ? down : used, s: 0 };
+    }
+    ladder[id] = next; store.set("ladder", ladder);
+  }
+  function resetLadderToday() {
+    const sn = store.get("ladderSnap", null);
+    if (!sn || sn.day !== new Date().toDateString()) return;
+    Object.entries(sn.vals).forEach(([id, v]) => { if (v) ladder[id] = v; else delete ladder[id]; });
+    store.set("ladder", ladder); store.set("ladderSnap", null);
+  }
+
+  // Auswählen oder Richtig oder falsch: Karte wird angetippt statt aufgedeckt und gewischt
+  const isMc = () => !!session.current && !run.active && session.lvl !== 2;
+  const mc = { picked: null, ok: null, order: [], multi: false, sel: new Set(), right: new Set() };
   function showMc(c) {
-    const o = mcOpts(c); mc.ok = o[0]; mc.picked = null; mc.order = shuffleInPlace(o.slice());
-    const box = $("cMc"); box.className = "mc"; box.replaceChildren();
-    mc.order.forEach((t, n) => { const b = document.createElement("button"); b.type = "button"; b.dataset.n = n; b.textContent = t; box.append(b); });
+    mc.picked = null; mc.sel = new Set(); mc.multi = +c.stage === 1;
+    if (mc.multi) { const o = listOpts(c); mc.right = new Set(o.right); mc.ok = null; mc.order = shuffleInPlace([...o.right, ...o.wrong]); }
+    else { const o = mcOpts(c); mc.ok = o[0]; mc.right = new Set([o[0]]); mc.order = shuffleInPlace([...new Set(o)]); }
+    const box = $("cMc"); box.className = mc.multi ? "mc multi" : "mc"; box.replaceChildren();
+    mc.order.forEach((t, n) => {
+      const b = document.createElement("button"); b.type = "button"; b.dataset.n = n;
+      const s = document.createElement("span"); s.textContent = t; b.append(s);
+      if (mc.multi) b.setAttribute("aria-pressed", "false");
+      box.append(b);
+    });
     box.hidden = false; $("mcNote").hidden = true; $("mcNext").hidden = true;
+    $("mcCheck").hidden = !mc.multi; $("mcCheck").disabled = true;
+  }
+  function missNote() { return session.requeued.has(session.current) ? "Nicht ganz." : "Nicht ganz. Die Karte kommt am Ende der Runde nochmal."; }
+  function settle(right, text) {
+    session.okNow = right; session.revealed = true;
+    const note = $("mcNote");
+    note.textContent = text; note.hidden = false; note.className = "mc-note " + (right ? "ok" : "no");
+    // Richtig oder falsch: Urteil direkt unter die Aussage, darunter die Antwort der Karte
+    if (session.lvl === 1) $("card").insertBefore(note, $("cAnswer"));
+    $("mcCheck").hidden = true; $("mcNext").hidden = false; $("mcNext").focus({ preventScroll: true });
+    markSpeak();
   }
   function pickMc(n) {
-    if (mc.picked !== null || !session.current || run.active) return;
-    mc.picked = n; session.revealed = true;
-    const box = $("cMc"); box.classList.add("picked");
-    [...box.children].forEach((b, i) => { if (mc.order[i] === mc.ok) b.classList.add("right"); else if (i === n) b.classList.add("wrong"); });
+    if (mc.picked !== null || !session.current || run.active || session.lvl !== 0) return;
+    const box = $("cMc"), b = box.children[n]; if (!b) return;
+    if (mc.multi) {
+      if (mc.sel.has(n)) mc.sel.delete(n); else mc.sel.add(n);
+      b.classList.toggle("sel", mc.sel.has(n)); b.setAttribute("aria-pressed", mc.sel.has(n) ? "true" : "false");
+      $("mcCheck").disabled = !mc.sel.size;
+      return;
+    }
+    mc.picked = n;
+    box.classList.add("picked");
+    [...box.children].forEach((x, i) => { if (mc.order[i] === mc.ok) x.classList.add("right"); else if (i === n) x.classList.add("wrong"); });
     const right = mc.order[n] === mc.ok;
-    $("mcNote").textContent = right ? "Richtig." : (session.requeued.has(session.current) ? "Nicht ganz. Die Karte kommt morgen wieder." : "Nicht ganz. Die Karte kommt am Ende der Runde nochmal.");
-    $("mcNote").hidden = false; $("mcNext").hidden = false; $("mcNext").focus({ preventScroll: true });
+    settle(right, right ? "Richtig." : missNote());
   }
-  function nextMc() { if (mc.picked === null) return; const right = mc.order[mc.picked] === mc.ok; $("mcNext").hidden = true; answer(right ? 2 : 1); }
+  // Richtig nur, wenn genau die richtigen Begriffe gewählt sind
+  function checkMulti() {
+    if (!mc.multi || mc.picked !== null || !mc.sel.size || session.lvl !== 0) return;
+    mc.picked = -1;
+    const box = $("cMc"); box.classList.add("picked");
+    let right = true;
+    [...box.children].forEach((x, i) => {
+      const isR = mc.right.has(mc.order[i]), s = mc.sel.has(i);
+      x.classList.remove("sel"); if (s) x.classList.add("chk");
+      if (isR && s) x.classList.add("right");
+      else if (!isR && s) { x.classList.add("wrong"); right = false; }
+      else if (isR && !s) { x.classList.add("missed"); right = false; }
+    });
+    settle(right, right ? "Richtig, alle " + mc.right.size + " gefunden." : missNote() + " Gestrichelt: hat gefehlt.");
+  }
+  const tf = { s: null, picked: null };
+  function showTf(c) {
+    const list = stmtsOf(c);
+    tf.s = list[Math.floor(Math.random() * list.length)]; tf.picked = null;
+    $("cAsk").innerHTML = askHtml(tf.s.t);
+    const q = document.createElement("p"); q.className = "aq"; q.textContent = String(c.ask || c.q || "").replace(/\*\*/g, "");
+    $("cAnswer").prepend(q);
+    $("tf").hidden = false;
+  }
+  function pickTf(says) {
+    if (tf.picked !== null || !session.current || run.active || session.lvl !== 1) return;
+    tf.picked = says;
+    const right = says === tf.s.ok;
+    $("tf").hidden = true;
+    $("cAnswer").hidden = false;
+    requestAnimationFrame(fitAll);
+    settle(right, (right ? "Richtig. " : missNote() + " ") + (tf.s.ok ? "Die Aussage stimmt." : "Die Aussage stimmt nicht."));
+    if (autoRead) speak("a");
+  }
+  function nextMc() { if (session.okNow === null || !session.current) return; $("mcNext").hidden = true; answer(session.okNow ? OK_G : 1); }
   $("cMc").addEventListener("click", e => { const b = e.target.closest("button"); if (b) pickMc(+b.dataset.n); });
+  $("mcCheck").addEventListener("click", checkMulti);
+  $("tf").addEventListener("click", e => { const b = e.target.closest("button"); if (b) pickTf(b.dataset.v === "1"); });
   $("mcNext").addEventListener("click", nextMc);
-  function showCard(id) {
+  function showCard(id, forceLvl) {
     const c = cards.get(id);
-    session.current = id; session.revealed = false;
+    session.current = id; session.revealed = false; session.okNow = null;
+    const lvl = forceLvl !== undefined ? forceLvl : levelFor(id);
+    session.lvl = lvl;
     const card = $("card");
     card.className = "card back-in"; card.style.transform = ""; resetStamps();
-    const isM = !!mcOpts(c);
-    $("cType").textContent = isM ? "Auswahl" : (+c.stage === 1) ? "Aufzählen" : "Erkennen";
-    $("cAsk").innerHTML = isM ? esc(c.q || c.ask || "") : askHtml(c.ask || c.q || "");
+    $("cType").textContent = (+c.stage === 1) ? "Aufzählen" : "Erkennen";
+    $("cLvl").textContent = LV_NAMES[lvl]; $("cLvl").hidden = run.active;
+    if (lvl === 0 && +c.stage !== 1) $("cAsk").innerHTML = esc(String(c.q || c.ask || "").replace(/\*\*/g, ""));
+    else $("cAsk").innerHTML = askHtml(c.ask || c.q || "");
     fillAnswer(c);
-    $("cAnswer").hidden = true; $("tapHint").hidden = isM;
+    $("cAnswer").hidden = true; $("tapHint").hidden = lvl !== 2 || run.active;
     $("answers").hidden = true; $("swipeHint").hidden = true;
-    $("mcNext").hidden = true; $("mcNote").hidden = true;
-    if (isM) showMc(c); else { $("cMc").hidden = true; $("cMc").replaceChildren(); }
+    $("mcNext").hidden = true; $("mcNote").hidden = true; $("mcCheck").hidden = true; $("tf").hidden = true;
+    $("cMc").hidden = true; $("cMc").replaceChildren();
+    $("cMc").after($("mcNote")); $("mcNote").className = "mc-note";
+    if (lvl === 0) showMc(c); else if (lvl === 1) showTf(c);
     card.scrollTop = 0;
     requestAnimationFrame(fitAll);
     markSpeak();
@@ -711,7 +889,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (!cards.get(id)) return nextCard();
     showCard(id); updateProgress();
     stopSpeech();
-    if (autoRead) setTimeout(() => speak("q"), 250);
+    // Richtig oder falsch: die Tonspur passt zur Kartenfrage, nicht zur Aussage, daher nicht automatisch vorlesen
+    if (autoRead && session.lvl !== 1) setTimeout(() => speak("q"), 250);
   }
   function updateProgress() {
     $("progressFill").style.width = (session.total ? Math.round(session.done / session.total * 100) : 0) + "%";
@@ -735,14 +914,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     const next = schedule(prev, g, now);
     states.set(id, next);
     noteSession(id, g, now);
+    ladderStep(id, session.lvl, g !== 1);
     let mustWrite = false;
     if (g === 1) {
       session.misses++;
-      // Einmal ans Ende der Runde, beim zweiten Mal erst morgen wieder
+      // Einmal ans Ende der Runde, beim zweiten Mal erst morgen wieder; dann einmal aufschreiben (egal auf welcher Stufe)
       if (!session.requeued.has(id)) { session.requeued.add(id); session.queue.push(id); }
-      else session.done++;
-      const md = missDay(); md.counts[id] = (md.counts[id] || 0) + 1; store.set("missDay", md);
-      mustWrite = md.counts[id] >= 2 && !md.written[id] && !mcOpts(cards.get(id) || {});
+      else { session.done++; mustWrite = true; }
     }
     else session.done++;
     pending.push({ id, st: next, r: g, t: now }); store.set("pending", pending);
@@ -760,53 +938,50 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     session.active = false; session.current = null;
     $("doneTitle").textContent = session.mode === "due" ? "Für heute alles wiederholt." : "Runde fertig.";
     $("doneText").textContent = session.misses
-      ? `${session.total} Karten. ${session.misses}-mal "Noch nicht", diese Karten kommen morgen wieder.`
+      ? `${session.total} Karten. ${session.misses}-mal nicht gewusst, diese Karten kommen morgen wieder.`
       : `${session.total} Karten, alle beim ersten Versuch gewusst.`;
     show("done");
   }
 
-  // ---------- Einmal schreiben ----------
+  // ---------- Einmal aufschreiben ----------
   // Nur die gefragten Begriffe, nie die Zusätze in Klammern oder in der Spalte note.
   function termsOf(c) { return String(c.a || "").split(";").map(x => x.trim().replace(/\s*\(.+\)$/, "").replace(/\.$/, "")).filter(Boolean); }
-  const normW = t => String(t).toLowerCase().normalize("NFC").replace(/[\s\-–]+/g, " ").replace(/[.,;:]/g, "").trim();
-  function missDay() {
-    const today = new Date().toDateString();
-    const md = store.get("missDay", null);
-    return md && md.day === today ? md : { day: today, counts: {}, written: {} };
+  // Vergleich: Groß/Klein, Leerzeichen, Satzzeichen und Bindestriche egal
+  const normX = t => String(t).toLowerCase().normalize("NFC").replace(/[^\p{L}\p{N}]+/gu, "");
+  const writeTerms = c => { const t = termsOf(c); return t.length ? t : ((mcOpts(c) || []).slice(0, 1)); };
+  // Wie viele Begriffe im Text vorkommen, Reihenfolge egal; jeder Textteil zählt nur für einen Begriff
+  function countHits(text, terms) {
+    let rest = normX(text), hits = 0;
+    terms.map(normX).filter(Boolean).sort((a, b) => b.length - a.length).forEach(t => {
+      const i = rest.indexOf(t);
+      if (i >= 0) { hits++; rest = rest.slice(0, i) + "|" + rest.slice(i + t.length); }
+    });
+    return hits;
   }
+  const wr = { terms: [] };
   function openWrite(id) {
     const c = cards.get(id); if (!c) return nextCard();
-    const md = missDay(); md.written[id] = true; store.set("missDay", md);
     stopSpeech();
     $("wAsk").innerHTML = askHtml(c.ask || c.q || "").replace(/<\/?mark>/g, "");
-    const rows = $("wRows"); rows.replaceChildren();
-    const terms = termsOf(c);
-    $("wNote").textContent = terms.length > 1 ? 'Zweimal "Noch nicht" bei dieser Karte. Schreib die Begriffe einmal.' : 'Zweimal "Noch nicht" bei dieser Karte. Schreib den Begriff einmal.';
-    terms.forEach(term => {
-      const row = document.createElement("label"); row.className = "wrow";
-      const t = document.createElement("div"); t.className = "wt"; t.textContent = term;
-      const box = document.createElement("div"); box.className = "wbox";
-      const inp = document.createElement("input");
-      inp.type = "text"; inp.autocomplete = "off"; inp.spellcheck = false;
-      inp.setAttribute("autocapitalize", "off"); inp.setAttribute("autocorrect", "off");
-      inp.placeholder = "hier abtippen";
-      const ok = document.createElement("span"); ok.className = "ok";
-      ok.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
-      inp.addEventListener("input", () => {
-        row.classList.toggle("done", normW(inp.value) === normW(term));
-        const all = [...rows.querySelectorAll(".wrow")].every(r => r.classList.contains("done"));
-        $("wNext").disabled = !all;
-        if (row.classList.contains("done")) { const nx = [...rows.querySelectorAll(".wrow:not(.done) input")][0]; if (nx) nx.focus(); }
-      });
-      box.append(inp, ok); row.append(t, box); rows.append(row);
-    });
-    $("wNext").disabled = true;
+    fillAnswer(c, $("wAns"));
+    wr.terms = writeTerms(c).filter(t => normX(t));
+    $("wText").value = ""; $("wText").classList.remove("done");
+    $("wStat").textContent = wr.terms.length > 1 ? "Alle " + wr.terms.length + " Begriffe, Reihenfolge egal." : "";
+    $("wStat").classList.remove("done");
+    $("wNext").disabled = !!wr.terms.length;
     show("write");
-    const first = rows.querySelector("input"); if (first) setTimeout(() => first.focus(), 50);
+    requestAnimationFrame(fitAll);
+    setTimeout(() => $("wText").focus(), 50);
   }
+  $("wText").addEventListener("input", () => {
+    const n = wr.terms.length, hits = countHits($("wText").value, wr.terms), ok = hits >= n;
+    $("wText").classList.toggle("done", ok); $("wStat").classList.toggle("done", ok);
+    $("wStat").textContent = ok ? "Passt." : (n > 1 ? hits + " von " + n + " Begriffen, Reihenfolge egal." : "");
+    $("wNext").disabled = !ok;
+  });
   function closeWrite() { if (document.activeElement) document.activeElement.blur(); show("review"); nextCard(); }
   $("wNext").addEventListener("click", closeWrite);
-  $("wSkip").addEventListener("click", closeWrite);
+  $("wPaper").addEventListener("click", closeWrite);
 
   // ---------- Wischen ----------
   const card = $("card");
@@ -877,6 +1052,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     const sm = store.get("sessMiss", {}) || {}; Object.keys(sm).forEach(k => { if (new Date(sm[k].last).toDateString() === today) delete sm[k]; }); store.set("sessMiss", sm);
     $("resetYes").disabled = true;
     const ok = await sync({ reset: "today" });
+    if (ok) resetLadderToday();
     $("resetYes").disabled = false;
     show("home"); renderHome();
     toast(ok ? "Heute wurde zurückgesetzt." : "Zurücksetzen geht nur mit Internet. Versuch es gleich noch einmal.");
@@ -1118,7 +1294,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     while (run.active && gen === run.gen && run.idx < run.list.length) {
       const c = cards.get(run.list[run.idx]);
       if (!c) { run.idx++; continue; }
-      showCard(c.id); $("tapHint").hidden = true; updateRunProgress(); setMedia(c);
+      showCard(String(c.id), 2); $("tapHint").hidden = true; updateRunProgress(); setMedia(c);
       if (!await waitUnpaused(gen)) return;
       await speakCard(c, "q");
       if (gen !== run.gen) return;
@@ -1351,8 +1527,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (e.repeat) return;
     // Einmal schreiben: tippen bleibt frei
     if (visible("write")) {
-      if (k === "Enter" && !$("wNext").disabled) return take(() => $("wNext").click());
-      if (k === "Escape") return take(() => $("wSkip").click());
+      if (k === "Enter" && !e.shiftKey) return take(() => { if (!$("wNext").disabled) $("wNext").click(); });
+      if (k === "Escape") return take(() => $("wPaper").click());
       return;
     }
     if (inField) return;
@@ -1371,8 +1547,15 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (k === "f" || k === "F") return take(openFeedback);
     if (KEY_SPEAK.includes(k)) return take(() => $("speakBtn").click());
     if (isMc()) {
-      if (mc.picked === null && /^[1-4]$/.test(k)) return take(() => pickMc(+k - 1));
-      if (mc.picked !== null && (k === "Enter" || k === " " || KEY_YES.includes(k))) return take(nextMc);
+      const go = k === "Enter" || k === " " || KEY_YES.includes(k);
+      if (session.okNow !== null) { if (go) take(nextMc); return; }
+      if (session.lvl === 0) {
+        if (/^[1-9]$/.test(k)) return take(() => pickMc(+k - 1));
+        if (mc.multi && k === "Enter" && !$("mcCheck").disabled) return take(checkMulti);
+        return;
+      }
+      if (KEY_YES.includes(k)) return take(() => pickTf(true));
+      if (KEY_NO.includes(k)) return take(() => pickTf(false));
       return;
     }
     if (!session.revealed) { if (KEY_REVEAL.includes(k)) take(reveal); return; }
