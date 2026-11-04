@@ -120,6 +120,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .mc button.wrong { background: var(--no-bg); box-shadow: inset 0 0 0 2px var(--no-ink); color: var(--no-ink); }
 .mc.picked button:not(.right):not(.wrong):not(.missed) { opacity: .55; }
 /* Aufzählen auswählen: mehrere antippen, dann prüfen */
+.mc .mc-hint { margin: 0 0 4px; color: var(--muted); font-size: 15px; }
 .mc.multi button { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px; align-items: center; }
 .mc.multi button::before { content: ""; width: 22px; height: 22px; border-radius: 7px; box-shadow: inset 0 0 0 2px var(--field-line); }
 .mc.multi button.sel { background: var(--card); box-shadow: inset 0 0 0 2px var(--accent); }
@@ -484,7 +485,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 02:45";
+  const APP_V = "04.11. 03:10";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -784,10 +785,15 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   const isMc = () => !!session.current && !run.active && session.lvl !== 2;
   const mc = { picked: null, ok: null, order: [], multi: false, sel: new Set(), right: new Set() };
   function showMc(c) {
-    mc.picked = null; mc.sel = new Set(); mc.multi = +c.stage === 1;
-    if (mc.multi) { const o = listOpts(c); mc.right = new Set(o.right); mc.ok = null; mc.order = shuffleInPlace([...o.right, ...o.wrong]); }
+    mc.picked = null; mc.sel = new Set();
+    // Mehrfachauswahl nur, wenn wirklich mehrere Begriffe richtig sind; sonst ein Tipp genügt
+    const lo = +c.stage === 1 ? listOpts(c) : null;
+    mc.multi = !!lo && lo.right.length > 1;
+    if (mc.multi) { mc.right = new Set(lo.right); mc.ok = null; mc.order = shuffleInPlace([...lo.right, ...lo.wrong]); }
+    else if (lo) { mc.ok = lo.right[0]; mc.right = new Set([mc.ok]); mc.order = shuffleInPlace([...new Set([mc.ok, ...lo.wrong])]); }
     else { const o = mcOpts(c); mc.ok = o[0]; mc.right = new Set([o[0]]); mc.order = shuffleInPlace([...new Set(o)]); }
     const box = $("cMc"); box.className = mc.multi ? "mc multi" : "mc"; box.replaceChildren();
+    if (mc.multi) { const h = document.createElement("p"); h.className = "mc-hint"; h.textContent = mc.right.size + " sind richtig – alle antippen, dann prüfen"; box.append(h); }
     mc.order.forEach((t, n) => {
       const b = document.createElement("button"); b.type = "button"; b.dataset.n = n;
       const s = document.createElement("span"); s.textContent = t; b.append(s);
@@ -809,7 +815,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
   function pickMc(n) {
     if (mc.picked !== null || !session.current || run.active || session.lvl !== 0) return;
-    const box = $("cMc"), b = box.children[n]; if (!b) return;
+    const box = $("cMc"), b = box.querySelector('button[data-n="' + n + '"]'); if (!b) return;
     if (mc.multi) {
       if (mc.sel.has(n)) mc.sel.delete(n); else mc.sel.add(n);
       b.classList.toggle("sel", mc.sel.has(n)); b.setAttribute("aria-pressed", mc.sel.has(n) ? "true" : "false");
@@ -818,7 +824,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     }
     mc.picked = n;
     box.classList.add("picked");
-    [...box.children].forEach((x, i) => { if (mc.order[i] === mc.ok) x.classList.add("right"); else if (i === n) x.classList.add("wrong"); });
+    [...box.querySelectorAll("button")].forEach((x, i) => { if (mc.order[i] === mc.ok) x.classList.add("right"); else if (i === n) x.classList.add("wrong"); });
     const right = mc.order[n] === mc.ok;
     settle(right, right ? "Richtig." : missNote());
   }
@@ -828,7 +834,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     mc.picked = -1;
     const box = $("cMc"); box.classList.add("picked");
     let right = true;
-    [...box.children].forEach((x, i) => {
+    [...box.querySelectorAll("button")].forEach((x, i) => {
       const isR = mc.right.has(mc.order[i]), s = mc.sel.has(i);
       x.classList.remove("sel"); if (s) x.classList.add("chk");
       if (isR && s) x.classList.add("right");
