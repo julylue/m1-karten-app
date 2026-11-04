@@ -7,8 +7,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="M1 Karten">
-<meta name="theme-color" content="#e9efec" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0f1513" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f8f6f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151312" media="(prefers-color-scheme: dark)">
 <link rel="apple-touch-icon" href="icon-180.png">
 <title>M1 Karten</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,19 +17,19 @@
 <style>
 /* Layout: Stil 2. Eine farbige Karte pro Bildschirm, Frage mittig, Antwort in einem hellen Feld; zwei Antworttasten in Daumenhöhe. */
 :root {
-  --bg: #e9efec; --bg2: #dfe8e4; --ink: #15201c; --muted: #5d6b66; --line: #d3ddd8;
-  --accent: #2b6a5b; --card: #ffffff; --hl: #d8ece5; --term: #2b6a5b; --num-bg: #e4efeb; --sub: #5d6b66;
-  --soft: #e4efeb; --field: #f4f8f6; --field-line: #7f8e88;
-  --no-bg: #ffffff; --no-ink: #b5400b; --no-ring: #f3cdb6; --yes-bg: #2b6a5b; --yes-ink: #ffffff;
-  --shadow: 0 1px 2px rgba(20,40,34,.06), 0 12px 32px rgba(20,40,34,.12);
+  --bg: #f8f6f3; --bg2: #f1ede8; --ink: #282422; --muted: #706864; --line: #e9e4de;
+  --accent: #b0603f; --card: #ffffff; --hl: #f6e6dd; --term: #9c5134; --num-bg: #f2ece6; --sub: #706864;
+  --soft: #f2ece6; --field: #fbf9f6; --field-line: #9a8f89;
+  --no-bg: #ffffff; --no-ink: #8f3a1f; --no-ring: #ecc9b7; --yes-bg: #b0603f; --yes-ink: #ffffff;
+  --shadow: 0 1px 2px rgba(60,40,30,.06), 0 12px 32px rgba(60,40,30,.10);
   --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", -apple-system, "SF Pro Text", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1513; --bg2: #131b18; --ink: #e6eeeb; --muted: #97a6a0; --line: #2b3632;
-    --accent: #76b7a5; --card: #1b2421; --hl: #24423a; --term: #8fd0bd; --num-bg: #1f2d29; --sub: #97a6a0;
-    --soft: #1f2d29; --field: #141c19; --field-line: #6f7f79;
-    --no-bg: #1b2421; --no-ink: #f0915f; --no-ring: #4a3020; --yes-bg: #76b7a5; --yes-ink: #0f1513;
+    --bg: #151312; --bg2: #191614; --ink: #f1ebe7; --muted: #a59c97; --line: #322b28;
+    --accent: #e09c7d; --card: #201c1a; --hl: #3a271e; --term: #f0b496; --num-bg: #2a2421; --sub: #a59c97;
+    --soft: #2a2421; --field: #1a1715; --field-line: #7a706b;
+    --no-bg: #201c1a; --no-ink: #f2a789; --no-ring: #5a3324; --yes-bg: #e09c7d; --yes-ink: #151312;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
     color-scheme: dark;
   }
@@ -491,7 +491,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 03:55";
+  const APP_V = "04.11. 22:45";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
