@@ -242,7 +242,15 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .write-card { background: var(--card); border-radius: 24px; box-shadow: var(--shadow); padding: 24px; display: grid; gap: 16px; }
 .write-card .wq { font-size: 17px; font-weight: 600; line-height: 1.35; margin: 0; color: var(--muted); }
 .write-card .answer { border-top: 0; padding-top: 0; }
-.wlab { font-size: 17px; font-weight: 700; }
+.wrow { display: grid; gap: 8px; }
+.wrows { display: grid; gap: 18px; }
+.wrow .wt { font-size: 20px; font-weight: 800; color: var(--term); line-height: 1.2; overflow-wrap: anywhere; }
+.wrow .wbox { position: relative; }
+.wrow input { width: 100%; font: inherit; font-size: 17px; padding: 12px 44px 12px 14px; border-radius: 14px; border: 1.5px solid var(--field-line); background: var(--field); color: var(--ink); }
+.wrow input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.wrow .ok { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; color: var(--term); opacity: 0; transition: opacity .15s; }
+.wrow.done .ok { opacity: 1; }
+.wrow.done input { border-color: var(--term); }
 .wtext { width: 100%; min-height: 80px; font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--field-line); background: var(--field); color: var(--ink); resize: none; }
 .wtext:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .wtext.done { border-color: var(--term); }
@@ -356,11 +364,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       <p class="note" id="wNote">Zweimal falsch in dieser Runde. Das ist die richtige Antwort.</p>
       <div class="write-card">
         <p class="wq" id="wAsk"></p>
-        <div class="answer" id="wAns"></div>
+        <div id="wRows" class="wrows"></div>
       </div>
-      <label class="wlab" for="wText">Schreib es einmal auf</label>
-      <textarea class="wtext" id="wText" rows="2" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="hier abtippen"></textarea>
-      <p class="wstat" id="wStat" aria-live="polite"></p>
     </div>
     <button class="primary" id="wNext" disabled>Weiter</button>
     <button class="secondary" id="wPaper">Auf Papier geschrieben</button>
@@ -485,7 +490,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 03:20";
+  const APP_V = "04.11. 03:25";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -669,10 +674,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (isMc()) fit($("cAsk"), 22, 17); else fit($("cAsk"), 26, 19);
     $("cAnswer").querySelectorAll(".term").forEach(el => fit(el, 26, 17));
     $("cAnswer").querySelectorAll("li .t").forEach(el => fit(el, 20, 14));
-    if (!$("write").hidden) {
-      $("wAns").querySelectorAll(".term").forEach(el => fit(el, 26, 17));
-      $("wAns").querySelectorAll("li .t").forEach(el => fit(el, 20, 14));
-    }
   }
   function fillAnswer(c, box) {
     box = box || $("cAnswer"); box.replaceChildren();
@@ -972,22 +973,33 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     const c = cards.get(id); if (!c) return nextCard();
     stopSpeech();
     $("wAsk").innerHTML = askHtml(c.ask || c.q || "").replace(/<\/?mark>/g, "");
-    fillAnswer(c, $("wAns"));
-    wr.terms = writeTerms(c).filter(t => normX(t));
-    $("wText").value = ""; $("wText").classList.remove("done");
-    $("wStat").textContent = wr.terms.length > 1 ? "Alle " + wr.terms.length + " Begriffe, Reihenfolge egal." : "";
-    $("wStat").classList.remove("done");
-    $("wNext").disabled = !!wr.terms.length;
+    const terms = writeTerms(c).filter(t => normX(t));
+    $("wNote").textContent = terms.length > 1 ? "Zweimal falsch in dieser Runde. Schreib die Begriffe einmal ab." : "Zweimal falsch in dieser Runde. Schreib den Begriff einmal ab.";
+    const rows = $("wRows"); rows.replaceChildren();
+    // Jeder Begriff einzeln: oben der Begriff, darunter ein eigenes Feld mit Haken, sobald es passt
+    terms.forEach(term => {
+      const row = document.createElement("label"); row.className = "wrow";
+      const t = document.createElement("div"); t.className = "wt"; t.textContent = term;
+      const box = document.createElement("div"); box.className = "wbox";
+      const inp = document.createElement("input");
+      inp.type = "text"; inp.autocomplete = "off"; inp.spellcheck = false;
+      inp.setAttribute("autocapitalize", "off"); inp.setAttribute("autocorrect", "off");
+      inp.placeholder = "hier abtippen";
+      const ok = document.createElement("span"); ok.className = "ok";
+      ok.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+      inp.addEventListener("input", () => {
+        row.classList.toggle("done", normX(inp.value) === normX(term));
+        const all = [...rows.querySelectorAll(".wrow")].every(r => r.classList.contains("done"));
+        $("wNext").disabled = !all;
+        if (row.classList.contains("done")) { const nx = rows.querySelector(".wrow:not(.done) input"); if (nx) nx.focus(); }
+      });
+      box.append(inp, ok); row.append(t, box); rows.append(row);
+    });
+    $("wNext").disabled = !!terms.length;
     show("write");
     requestAnimationFrame(fitAll);
-    setTimeout(() => $("wText").focus(), 50);
+    const first = rows.querySelector("input"); if (first) setTimeout(() => first.focus(), 50);
   }
-  $("wText").addEventListener("input", () => {
-    const n = wr.terms.length, hits = countHits($("wText").value, wr.terms), ok = hits >= n;
-    $("wText").classList.toggle("done", ok); $("wStat").classList.toggle("done", ok);
-    $("wStat").textContent = ok ? "Passt." : (n > 1 ? hits + " von " + n + " Begriffen, Reihenfolge egal." : "");
-    $("wNext").disabled = !ok;
-  });
   function closeWrite() { if (document.activeElement) document.activeElement.blur(); show("review"); nextCard(); }
   $("wNext").addEventListener("click", closeWrite);
   $("wPaper").addEventListener("click", closeWrite);
