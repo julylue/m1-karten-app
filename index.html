@@ -485,7 +485,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 03:15";
+  const APP_V = "04.11. 03:20";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -810,10 +810,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     note.textContent = text; note.hidden = false; note.className = "mc-note " + (right ? "ok" : "no");
     // Richtig oder falsch: Urteil direkt unter die Aussage, darunter die Antwort der Karte
     if (session.lvl === 1) $("card").insertBefore(note, $("cAnswer"));
-    $("mcCheck").hidden = true; $("mcNext").hidden = false; $("mcNext").focus({ preventScroll: true });
+    $("mcCheck").hidden = true;
     markSpeak();
-    // Richtig: kurz bestätigen und automatisch weiter. Falsch: stehen lassen, damit die Korrektur gelesen werden kann.
-    if (right) { const id = session.current; setTimeout(() => { if (session.current === id && session.okNow === true && !$("mcNext").hidden) nextMc(); }, session.lvl === 1 ? 1400 : 800); }
+    // Richtig: kurz bestätigen und automatisch weiter, ohne Knopf. Falsch: Weiter-Knopf, damit die Korrektur in Ruhe gelesen werden kann.
+    if (right) { const id = session.current; setTimeout(() => { if (session.current === id && session.okNow === true) nextMc(); }, session.lvl === 1 ? 1400 : 800); }
+    else { $("mcNext").hidden = false; $("mcNext").focus({ preventScroll: true }); }
   }
   function pickMc(n) {
     if (mc.picked !== null || !session.current || run.active || session.lvl !== 0) return;
