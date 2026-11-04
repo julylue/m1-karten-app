@@ -491,7 +491,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 03:30";
+  const APP_V = "04.11. 03:40";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -673,6 +673,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
   function fitAll() {
     if (isMc()) fit($("cAsk"), 22, 17); else fit($("cAsk"), 26, 19);
+    // Passt die Karte ganz auf den Bildschirm, braucht sie kein senkrechtes Scrollen: dann gehören alle Wischbewegungen der App (auch schräge mit dem Daumen)
+    requestAnimationFrame(() => { const cd = $("card"); cd.style.touchAction = cd.scrollHeight > cd.clientHeight + 2 ? "pan-y" : "none"; });
     $("cAnswer").querySelectorAll(".term").forEach(el => fit(el, 26, 17));
     $("cAnswer").querySelectorAll("li .t").forEach(el => fit(el, 20, 14));
   }
@@ -1007,7 +1009,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
   // ---------- Wischen ----------
   const card = $("card");
-  const TH = 80;
+  const TH = 70;
   let sx = 0, sy = 0, dx = 0, active = false, horiz = null, tapCandidate = false;
   function paintSwipe(d) {
     const p = Math.max(-1, Math.min(1, d / TH)), q = Math.min(1, Math.abs(p) * 1.15);
@@ -1026,7 +1028,10 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (isMc()) { tapCandidate = false; return; }
     dx = x - sx; const dy = y - sy;
     if (Math.abs(dx) > 6 || Math.abs(dy) > 6) tapCandidate = false;
-    if (horiz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horiz = Math.abs(dx) > Math.abs(dy);
+    // Schräges Wischen mit dem Daumen zählt auch: seitlich, solange die Bewegung nicht deutlich steiler als etwa 60 Grad ist
+    const side = Math.abs(dx) >= Math.abs(dy) * 0.6;
+    if (horiz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horiz = side;
+    else if (horiz === false && Math.abs(dx) > 24 && side) horiz = true;
     if (!horiz) return;
     if (ev && ev.cancelable) ev.preventDefault();
     if (!session.revealed) return;
