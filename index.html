@@ -491,7 +491,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 03:50";
+  const APP_V = "04.11. 03:55";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -1025,9 +1025,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   function begin(x, y) { sx = x; sy = y; dx = 0; active = true; horiz = null; tapCandidate = true; card.classList.remove("snap", "back-in"); card.classList.add("dragging"); }
   // Richtig oder falsch per Daumen: nach rechts wischen = Stimmt, nach links = Stimmt nicht
   const tfSwipe = () => !!session.current && session.lvl === 1 && !$("tf").hidden;
+  // Nach dem Auflösen (Auswählen, Richtig oder falsch): Wischen in jede Richtung = weiter
+  const nextSwipe = () => !!session.current && isMc() && session.okNow !== null && $("tf").hidden;
   function move(x, y, ev) {
     if (!active || run.active) return;
-    if (isMc() && !tfSwipe()) { tapCandidate = false; return; }
+    if (isMc() && !tfSwipe() && !nextSwipe()) { tapCandidate = false; return; }
     dx = x - sx; const dy = y - sy;
     if (Math.abs(dx) > 6 || Math.abs(dy) > 6) tapCandidate = false;
     // Schräges Wischen mit dem Daumen zählt auch: seitlich, solange die Bewegung nicht deutlich steiler als etwa 60 Grad ist
@@ -1038,6 +1040,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (ev && ev.cancelable) ev.preventDefault();
     if (!session.revealed && !tfSwipe()) return;
     card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
+    // Bei Richtig oder falsch und beim Weiterwischen keine Haken/Kreuz-Stempel: links heißt hier nicht "falsch gewusst"
+    if (tfSwipe() || nextSwipe()) return;
     paintSwipe(dx);
   }
   function end() {
@@ -1046,6 +1050,12 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       const go = horiz && Math.abs(dx) > TH;
       card.classList.add("snap"); card.style.transform = ""; resetStamps();
       if (go) pickTf(dx > 0);
+      return;
+    }
+    if (nextSwipe()) {
+      const go = horiz && Math.abs(dx) > TH;
+      card.classList.add("snap"); card.style.transform = ""; resetStamps();
+      if (go) nextMc();
       return;
     }
     if (isMc()) { card.classList.remove("dragging"); return; }
