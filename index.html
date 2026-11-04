@@ -345,8 +345,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       <button class="ans yes" data-r="3">Wusste ich<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
     <div class="tf" id="tf" hidden>
-      <button type="button" data-v="0">Stimmt nicht</button>
-      <button type="button" data-v="1">Stimmt</button>
+      <button type="button" data-v="0">&larr; Stimmt nicht</button>
+      <button type="button" data-v="1">Stimmt &rarr;</button>
     </div>
     <button class="primary" id="mcCheck" hidden disabled>Prüfen</button>
     <button class="primary" id="mcNext" hidden>Weiter</button>
@@ -491,7 +491,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 03:40";
+  const APP_V = "04.11. 03:45";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -1023,9 +1023,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
   function resetStamps() { paintSwipe(0); }
   function begin(x, y) { sx = x; sy = y; dx = 0; active = true; horiz = null; tapCandidate = true; card.classList.remove("snap", "back-in"); card.classList.add("dragging"); }
+  // Richtig oder falsch per Daumen: nach rechts wischen = Stimmt, nach links = Stimmt nicht
+  const tfSwipe = () => !!session.current && session.lvl === 1 && !$("tf").hidden;
   function move(x, y, ev) {
     if (!active || run.active) return;
-    if (isMc()) { tapCandidate = false; return; }
+    if (isMc() && !tfSwipe()) { tapCandidate = false; return; }
     dx = x - sx; const dy = y - sy;
     if (Math.abs(dx) > 6 || Math.abs(dy) > 6) tapCandidate = false;
     // Schräges Wischen mit dem Daumen zählt auch: seitlich, solange die Bewegung nicht deutlich steiler als etwa 60 Grad ist
@@ -1034,12 +1036,18 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     else if (horiz === false && Math.abs(dx) > 24 && side) horiz = true;
     if (!horiz) return;
     if (ev && ev.cancelable) ev.preventDefault();
-    if (!session.revealed) return;
+    if (!session.revealed && !tfSwipe()) return;
     card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
     paintSwipe(dx);
   }
   function end() {
     if (!active) return; active = false; card.classList.remove("dragging");
+    if (tfSwipe()) {
+      const go = horiz && Math.abs(dx) > TH;
+      card.classList.add("snap"); card.style.transform = ""; resetStamps();
+      if (go) pickTf(dx > 0);
+      return;
+    }
     if (isMc()) { card.classList.remove("dragging"); return; }
     if (tapCandidate) { reveal(); return; }
     if (horiz && session.revealed && Math.abs(dx) > TH) { answer(dx > 0 ? 3 : 1); return; }
