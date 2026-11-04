@@ -484,7 +484,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 02:30";
+  const APP_V = "04.11. 02:45";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -870,8 +870,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     card.className = "card back-in"; card.style.transform = ""; resetStamps();
     $("cType").textContent = (+c.stage === 1) ? "Aufzählen" : "Erkennen";
     $("cLvl").textContent = LV_NAMES[lvl]; $("cLvl").hidden = run.active;
-    if (lvl === 0 && +c.stage !== 1) $("cAsk").innerHTML = esc(String(c.q || c.ask || "").replace(/\*\*/g, ""));
-    else $("cAsk").innerHTML = askHtml(c.ask || c.q || "");
+    // Immer die kurze Frage (ask) mit markiertem Erkennungsmerkmal; die lange Fassung (q) nur, wenn ask fehlt
+    $("cAsk").innerHTML = askHtml(c.ask || c.q || "");
     fillAnswer(c);
     $("cAnswer").hidden = true; $("tapHint").hidden = lvl !== 2 || run.active;
     $("answers").hidden = true; $("swipeHint").hidden = true;
