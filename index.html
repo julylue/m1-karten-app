@@ -491,7 +491,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 03:45";
+  const APP_V = "04.11. 03:50";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -902,8 +902,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     if (!cards.get(id)) return nextCard();
     showCard(id); updateProgress();
     stopSpeech();
-    // Richtig oder falsch: die Tonspur passt zur Kartenfrage, nicht zur Aussage, daher nicht automatisch vorlesen
-    if (autoRead && session.lvl !== 1) setTimeout(() => speak("q"), 250);
+    // Bei Richtig oder falsch liest speak("q") nur die Aussage vor (Gerätestimme), nie die Kartenfrage
+    if (autoRead) setTimeout(() => speak("q"), 250);
   }
   function updateProgress() {
     $("progressFill").style.width = (session.total ? Math.round(session.done / session.total * 100) : 0) + "%";
@@ -1187,6 +1187,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   $("loadRing").addEventListener("click", () => toast("Ton wird geladen, " + pre.done + " von " + pre.total + ". Lernen geht schon."));
   function stopSpeech() {
     speakToken++;
+    try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (_) {}
     try { player.pause(); } catch (_) {}
     if (endResolve) { const r = endResolve; endResolve = null; r(); }
     $("speakBtn").classList.remove("on", "busy");
@@ -1221,7 +1222,22 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       return false;
     }
   }
-  function speak(part) { const c = session.current && cards.get(session.current); if (c) speakCard(c, part); }
+  // Richtig oder falsch: Die Tonspuren gehören zur Kartenfrage und würden die Antwort verraten.
+  // Vor dem Auflösen deshalb nur die angezeigte Aussage mit der Stimme des Geräts vorlesen.
+  function speakText(text) {
+    stopSpeech(); const my = speakToken;
+    if (!window.speechSynthesis || !text) { toast("Vorlesen geht hier gerade nicht."); return; }
+    const u = new SpeechSynthesisUtterance(text); u.lang = "de-DE"; u.rate = 0.95;
+    const v = speechSynthesis.getVoices().find(x => /^de/i.test(x.lang)); if (v) u.voice = v;
+    u.onend = u.onerror = () => { if (my === speakToken) $("speakBtn").classList.remove("on"); };
+    $("speakBtn").classList.add("on");
+    speechSynthesis.speak(u);
+  }
+  function speak(part) {
+    const c = session.current && cards.get(session.current); if (!c) return;
+    if (session.lvl === 1 && part === "q") { speakText(String($("cAsk").textContent || "").trim()); return; }
+    speakCard(c, part);
+  }
   async function prefetchAudio(ids) {
     for (const id of ids) {
       const c = cards.get(id); if (!c) continue;
