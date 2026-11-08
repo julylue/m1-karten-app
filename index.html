@@ -203,6 +203,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .ov-head h1 { font-size: 20px; margin: 0; }
 .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .tile { background: var(--card); border-radius: 16px; padding: 12px; box-shadow: var(--shadow); display: grid; gap: 2px; }
+button.tile { text-align: left; color: var(--ink); }
+.tiles.filtered .tile:not(.on) { opacity: .55; }
+.tile.on { box-shadow: inset 0 0 0 2px var(--accent), var(--shadow); }
+.ov-filter { margin: -4px 0 0; font-size: 13px; color: var(--muted); }
+.ov-filter b { color: var(--term); }
 .tile b { font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .tile span { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
@@ -301,7 +306,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     <div class="setup">
       <div class="picks" id="pkSet">
         <button class="pick-opt on" data-set="due" aria-pressed="true"><span>Heute dran</span><b id="pkN-due">0</b></button>
-        <button class="pick-opt" data-set="hard" aria-pressed="false"><span>Oft falsch</span><b id="pkN-hard">0</b></button>
+        <button class="pick-opt" data-set="weak" aria-pressed="false"><span>Noch unsicher</span><b id="pkN-weak">0</b></button>
         <button class="pick-opt" data-set="new" aria-pressed="false"><span>Neu</span><b id="pkN-new">0</b></button>
         <button class="pick-opt" data-set="all" aria-pressed="false"><span>Alle</span><b id="pkN-all">0</b></button>
       </div>
@@ -386,10 +391,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       <h1>Deine Karten</h1>
     </div>
     <div class="tiles">
-      <div class="tile"><b id="tOk">0</b><span><i class="dot ok"></i>Sitzt</span></div>
-      <div class="tile"><b id="tWeak">0</b><span><i class="dot weak"></i>Noch unsicher</span></div>
-      <div class="tile"><b id="tNew">0</b><span><i class="dot new"></i>Neu</span></div>
+      <button class="tile" data-f="ok" aria-pressed="false"><b id="tOk">0</b><span><i class="dot ok"></i>Sitzt</span></button>
+      <button class="tile" data-f="weak" aria-pressed="false"><b id="tWeak">0</b><span><i class="dot weak"></i>Noch unsicher</span></button>
+      <button class="tile" data-f="new" aria-pressed="false"><b id="tNew">0</b><span><i class="dot new"></i>Neu</span></button>
     </div>
+    <p class="ov-filter" id="ovFilter" hidden></p>
     <div class="ov-list" id="ovList"></div>
   </section>
 
@@ -491,7 +497,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "04.11. 22:45";
+  const APP_V = "08.11. 13:40";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -607,8 +613,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     const inCourse = id => course === "all" || courseOf(cards.get(id)) === course;
     const ids = [...cards.keys()].filter(id => !isPaused(id) && inCourse(id));
     if (set === "due") { const { due, fresh } = dueLists(endOfToday(), course); return [...due, ...fresh]; }
-    if (set === "hard") return byStage(ids.filter(id => { const st = states.get(id); return st && st.reps && st.lapses >= 2; }));
-    if (set === "new") return byStage(ids.filter(id => { const st = states.get(id); return !st || !st.reps; }));
+    if (set === "weak" || set === "new") return byStage(ids.filter(id => statusOf(id) === set));
     return byStage(ids);
   }
   function fmtWhen(ts) {
@@ -864,6 +869,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     tf.picked = says;
     const right = says === tf.s.ok;
     $("tf").hidden = true;
+    // Richtig: wie bei normalen Karten sofort Haken und nach rechts weg, ohne Auflösung und ohne Vorlesen
+    if (right) { stopSpeech(); session.okNow = true; session.revealed = true; answer(OK_G); return; }
     $("cAnswer").hidden = false;
     requestAnimationFrame(fitAll);
     settle(right, (right ? "Richtig. " : missNote() + " ") + (tf.s.ok ? "Die Aussage stimmt." : "Die Aussage stimmt nicht."));
@@ -1077,7 +1084,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   $("menuBtn").addEventListener("click", () => openMenu($("menu").hidden));
   $("scrim").addEventListener("click", () => openMenu(false));
   $("mSync").addEventListener("click", async () => { openMenu(false); toast("Wird abgeglichen …"); const ok = await sync(); toast(ok ? "Auf dem neuesten Stand." : "Gerade offline. Versuch es gleich noch einmal."); });
-  $("mOverview").addEventListener("click", () => { openMenu(false); renderOverview(); show("overview"); });
+  $("mOverview").addEventListener("click", () => { openMenu(false); ovFilter = null; renderOverview(); show("overview"); });
   $("ovBack").addEventListener("click", () => { show("home"); renderHome(); });
   $("mReset").addEventListener("click", () => {
     openMenu(false);
@@ -1234,14 +1241,42 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
   // Richtig oder falsch: Die Tonspuren gehören zur Kartenfrage und würden die Antwort verraten.
   // Vor dem Auflösen deshalb nur die angezeigte Aussage mit der Stimme des Geräts vorlesen.
+  // Gerätestimme: zuerst eine natürliche deutsche Microsoft-Stimme (Edge), sonst wie bisher die erste deutsche Stimme (z. B. iPhone/Safari).
+  // getVoices() ist beim Start oft noch leer und füllt sich erst mit dem Ereignis voiceschanged.
+  const VOICE_PRIO = [/Seraphina\s*Multilingual/i, /Florian\s*Multilingual/i, /Katja.*Online/i, /Conrad.*Online/i, /Amala.*Online/i, /Killian.*Online/i, /Microsoft.*Online.*Natural/i];
+  let ttsVoice = null, ttsLocal = null;
+  function pickVoice() {
+    try {
+      const all = speechSynthesis.getVoices() || []; if (!all.length) return;
+      const de = all.filter(x => /^de([-_]|$)/i.test(x.lang || ""));
+      let v = null;
+      for (const re of VOICE_PRIO) { v = de.find(x => re.test(x.name || "")); if (v) break; }
+      ttsLocal = all.find(x => /^de/i.test(x.lang || "")) || null; // bisherige Wahl
+      ttsVoice = v || ttsLocal;
+    } catch (_) {}
+  }
+  if (window.speechSynthesis) {
+    pickVoice();
+    try { speechSynthesis.addEventListener("voiceschanged", pickVoice); } catch (_) { speechSynthesis.onvoiceschanged = pickVoice; }
+  }
   function speakText(text) {
     stopSpeech(); const my = speakToken;
     if (!window.speechSynthesis || !text) { toast("Vorlesen geht hier gerade nicht."); return; }
-    const u = new SpeechSynthesisUtterance(text); u.lang = "de-DE"; u.rate = 0.95;
-    const v = speechSynthesis.getVoices().find(x => /^de/i.test(x.lang)); if (v) u.voice = v;
-    u.onend = u.onerror = () => { if (my === speakToken) $("speakBtn").classList.remove("on"); };
+    if (!ttsVoice) pickVoice();
+    const say = (voice, retry) => {
+      const u = new SpeechSynthesisUtterance(text); u.lang = "de-DE"; u.rate = 0.95;
+      if (voice) u.voice = voice;
+      u.onend = () => { if (my === speakToken) $("speakBtn").classList.remove("on"); };
+      // Online-Stimmen brauchen Internet; schlägt eine fehl, einmal mit der bisherigen Stimme nachsprechen.
+      u.onerror = e => {
+        if (my !== speakToken) return;
+        if (retry && ttsLocal && voice !== ttsLocal && !(e && /interrupted|canceled/.test(e.error || ""))) { say(ttsLocal, false); return; }
+        $("speakBtn").classList.remove("on");
+      };
+      speechSynthesis.speak(u);
+    };
     $("speakBtn").classList.add("on");
-    speechSynthesis.speak(u);
+    say(ttsVoice, true);
   }
   function speak(part) {
     const c = session.current && cards.get(session.current); if (!c) return;
@@ -1426,27 +1461,43 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   }
 
   // ---------- Kartenübersicht ----------
-  // Noch unsicher: zuletzt "Noch nicht" ODER in der letzten Sitzung mindestens zweimal "Noch nicht".
+  // Eine Definition für Kartenübersicht und "Bestimmte Karten üben" (nur aus dem Lernstand, Blatt state):
+  // Neu: noch nie bewertet. Noch unsicher: zuletzt "Noch nicht" ODER mindestens 2 Fehler insgesamt und Stabilität unter 7 Tagen.
+  // Sitzt: alles andere. Eine oft falsche Karte zählt also wieder als "Sitzt", sobald ihr Abstand eine Woche erreicht.
+  const UNSURE_S = 7;
   function statusOf(id) {
     const st = states.get(id);
     if (!st || !st.reps) return "new";
     if (st.lastRating === 1) return "weak";
-    const rec = sessRec(id);
-    if (rec && rec.miss >= 2 && rec.last >= (st.last || 0) - 60000) return "weak";
+    if ((st.lapses || 0) >= 2 && (st.s || 0) < UNSURE_S) return "weak";
     return "ok";
   }
   function barOf(id) { const st = states.get(id); return st && st.reps ? Math.min(1, Math.log(1 + st.s) / Math.log(1 + 60)) : -1; }
   function termOf(c) { const a = String(c.a || "").split(";").map(x => x.trim().replace(/\s*\(.+\)$/, "")).filter(Boolean); return a.length > 1 ? a.join(", ") : (a[0] || "").replace(/\.$/, ""); }
+  // Antippen einer Kachel zeigt nur diese Kategorie, nochmal antippen zeigt wieder alle.
+  let ovFilter = null;
+  const OV_NAMES = { ok: "Sitzt", weak: "Noch unsicher", new: "Neu" };
+  $("overview").querySelector(".tiles").addEventListener("click", e => {
+    const b = e.target.closest(".tile"); if (!b) return;
+    ovFilter = ovFilter === b.dataset.f ? null : b.dataset.f;
+    renderOverview(); $("ovList").scrollTop = 0;
+  });
   function renderOverview() {
-    const ids = [...cards.keys()].filter(id => !isPaused(id));
+    const all = [...cards.keys()].filter(id => !isPaused(id));
     const cnt = { ok: 0, weak: 0, new: 0 };
-    ids.forEach(id => cnt[statusOf(id)]++);
+    all.forEach(id => cnt[statusOf(id)]++);
     $("tOk").textContent = cnt.ok; $("tWeak").textContent = cnt.weak; $("tNew").textContent = cnt.new;
+    const tiles = $("overview").querySelector(".tiles");
+    tiles.classList.toggle("filtered", !!ovFilter);
+    tiles.querySelectorAll(".tile").forEach(b => { const on = b.dataset.f === ovFilter; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
+    const ids = ovFilter ? all.filter(id => statusOf(id) === ovFilter) : all;
+    const fl = $("ovFilter"); fl.hidden = !ovFilter;
+    if (ovFilter) { fl.replaceChildren(); const b = document.createElement("b"); b.textContent = OV_NAMES[ovFilter] + ": " + ids.length + (ids.length === 1 ? " Karte" : " Karten"); fl.append("Filter ", b, " · nochmal antippen zeigt alle"); }
     // Sortiert nach Balken: kürzester oben, längster unten; neue Karten (noch kein Balken) ganz unten.
     const isNew = id => statusOf(id) === "new";
     ids.sort((a, b) => (isNew(a) - isNew(b)) || (barOf(a) - barOf(b)) || ((states.get(a) || {}).due || 0) - ((states.get(b) || {}).due || 0));
     const list = $("ovList"); list.replaceChildren();
-    if (!ids.length) { const e = document.createElement("div"); e.className = "empty"; e.textContent = "Noch keine Karten."; list.append(e); return; }
+    if (!ids.length) { const e = document.createElement("div"); e.className = "empty"; e.textContent = ovFilter ? "Keine Karten in dieser Gruppe." : "Noch keine Karten."; list.append(e); return; }
     ids.forEach(id => {
       const c = cards.get(id), st = states.get(id), stt = statusOf(id);
       const row = document.createElement("button"); row.className = "ov-row";
@@ -1543,13 +1594,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   const pick = { set: "due", course: "all" };
   const PICK_NOTE = {
     due: "Wie „Los geht's“: fällige Karten und die neuen für heute (10 bis 25, je nachdem, wie viele warten).",
-    hard: "Karten, die du mindestens zweimal nicht wusstest. Auch die pausierten sind hier drin.",
+    weak: "Wie „Noch unsicher“ in der Kartenübersicht: zuletzt nicht gewusst, oder mindestens zweimal nicht gewusst und noch keine Woche Abstand. Auch die pausierten sind hier drin.",
     new: "Alle Karten, die du noch nie gesehen hast, ohne Tagesgrenze.",
     all: "Alle Karten, leichte zuerst."
   };
   function renderPick() {
     let n = 0;
-    ["due", "hard", "new", "all"].forEach(s => { const len = pickList(s, pick.course).length; $("pkN-" + s).textContent = len; if (s === pick.set) n = len; });
+    ["due", "weak", "new", "all"].forEach(s => { const len = pickList(s, pick.course).length; $("pkN-" + s).textContent = len; if (s === pick.set) n = len; });
     $("pkSet").querySelectorAll(".pick-opt").forEach(b => { const on = b.dataset.set === pick.set; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
     $("pkCourse").querySelectorAll("button").forEach(b => { const on = b.dataset.c === pick.course; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
     $("pkNote").textContent = PICK_NOTE[pick.set] + " Deine Antworten zählen wie immer.";
