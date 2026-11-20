@@ -461,17 +461,9 @@ button.tile { text-align: left; color: var(--ink); }
   // Nicht gewusst: die Karte kommt nach REQUEUE_GAP Karten einmal wieder, danach erst am nächsten Tag (Successive Relearning statt Minuten-Schleife).
   const REQUEUE_GAP = 5;
   const DECAY = -0.5, FACTOR = 19 / 81, DAY = 86400000, RELEARN_MS = DAY;
-  // Neue Karten pro Tag passen sich an: so viele, dass die wartenden Karten in etwa einer Woche dran waren, mindestens 10, höchstens 25.
+  // Keine Tagesgrenze für neue Karten: Alle neuen kommen in den normalen Stapel, Wichtiges (prio) zuerst (Wunsch vom 20.11.2026).
   // Karten mit so vielen Fehlern, die zuletzt nicht saßen, pausieren und gehen in die Session mit Claude.
-  const NEW_MIN = 10, NEW_MAX = 25, NEW_WEEK = 7, LEECH_LAPSES = 4;
-  let NEW_PER_DAY = NEW_MIN;
-  function newPerDay() {
-    let open = 0;
-    for (const [id] of cards) { if (isPaused(id)) continue; const st = states.get(id); if (!st || !st.reps) open++; }
-    open += newDay().ids.length; // heute schon begonnene zählen zur Tagesmenge
-    NEW_PER_DAY = Math.min(NEW_MAX, Math.max(NEW_MIN, Math.ceil(open / NEW_WEEK)));
-    return NEW_PER_DAY;
-  }
+  const LEECH_LAPSES = 4;
   // Wichtiges zuerst: Spalte prio im Blatt cards (1 = Kernthema, 2 = sonst); fehlt sie, zählt 2.
   const prioOf = id => { const p = Number((cards.get(id) || {}).prio); return p >= 1 ? p : 2; };
   const clampD = d => Math.min(10, Math.max(1, d));
@@ -497,7 +489,7 @@ button.tile { text-align: left; color: var(--ink); }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "08.11. 13:40";
+  const APP_V = "20.11. 15:50";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -604,7 +596,7 @@ button.tile { text-align: left; color: var(--ink); }
     due.sort((a, b) => states.get(a).due - states.get(b).due);
     byStage(freshAll);
     freshAll.sort((a, b) => prioOf(a) - prioOf(b));
-    const fresh = freshAll.slice(0, Math.max(0, newPerDay() - newDay().ids.length));
+    const fresh = freshAll.slice();
     if (store.get("shuffle", false)) shuffleInPlace(due);
     return { due, fresh, waiting: freshAll.length - fresh.length, parked, freshAll };
   }
@@ -643,7 +635,6 @@ button.tile { text-align: left; color: var(--ink); }
     chips.push(chip([...cards.keys()].filter(id => !isPaused(id)).length + " insgesamt"));
     $("chips").replaceChildren(...chips);
     const notes = [];
-    if (waiting) notes.push(waiting + " neue " + (waiting === 1 ? "Karte wartet" : "Karten warten") + " auf die nächsten Tage (heute " + NEW_PER_DAY + " neue, die Menge passt sich an).");
     if (parked.length) notes.push(parked.length + (parked.length === 1 ? " Karte sitzt" : " Karten sitzen") + " nach vielen Versuchen nicht. Sie " + (parked.length === 1 ? "pausiert" : "pausieren") + " und " + (parked.length === 1 ? "kommt" : "kommen") + " in die nächste Session mit Claude.");
     if (total) { $("startBtn").hidden = false; }
     else {
@@ -1593,7 +1584,7 @@ button.tile { text-align: left; color: var(--ink); }
   // ---------- Bestimmte Karten üben ----------
   const pick = { set: "due", course: "all" };
   const PICK_NOTE = {
-    due: "Wie „Los geht's“: fällige Karten und die neuen für heute (10 bis 25, je nachdem, wie viele warten).",
+    due: "Wie „Los geht's“: fällige Karten und alle neuen.",
     weak: "Wie „Noch unsicher“ in der Kartenübersicht: zuletzt nicht gewusst, oder mindestens zweimal nicht gewusst und noch keine Woche Abstand. Auch die pausierten sind hier drin.",
     new: "Alle Karten, die du noch nie gesehen hast, ohne Tagesgrenze.",
     all: "Alle Karten, leichte zuerst."
