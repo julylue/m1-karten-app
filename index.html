@@ -227,6 +227,10 @@ button.tile { text-align: left; color: var(--ink); }
 .typeline .tools { display: flex; align-items: center; gap: 8px; margin-right: -10px; }
 .flag { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--muted); }
 .flag svg { width: 19px; height: 19px; }
+.flag.unk-on { color: var(--accent); background: var(--hl); }
+.sheet .keyrow { display: grid; gap: 6px; }
+.sheet .keyrow input { width: 100%; border-radius: 14px; border: 1.5px solid var(--field-line); background: var(--field); color: var(--ink); font: inherit; font-size: 16px; padding: 12px; }
+.sheet .err { color: var(--no-ink); font-size: 15px; margin: 0; }
 .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-width: 520px; margin: 0 auto;
   background: var(--card); border-radius: 22px 22px 0 0; box-shadow: var(--shadow);
   padding: 20px max(18px, env(safe-area-inset-left, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 10px; }
@@ -238,6 +242,7 @@ button.tile { text-align: left; color: var(--ink); }
 .sheet .opt.on { box-shadow: inset 0 0 0 2px var(--accent); }
 .sheet textarea { width: 100%; min-height: 70px; border-radius: 14px; border: 1.5px solid var(--field-line); background: var(--field); color: var(--ink); font: inherit; font-size: 17px; padding: 12px; resize: none; }
 .sheet .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+#unkRow { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
 .sheet .row button { padding: 14px; border-radius: 14px; font-weight: 700; background: var(--soft); }
 .sheet .row .go { background: var(--yes-bg); color: var(--yes-ink); }
 .sheet .row .go:disabled { opacity: .45; }
@@ -329,6 +334,7 @@ button.tile { text-align: left; color: var(--ink); }
     <div class="typeline">
       <span class="tl-left"><span class="eyebrow" id="cType"></span><span class="lvl" id="cLvl" hidden></span></span>
       <span class="tools">
+      <button class="flag" id="unkBtn" aria-label="Nicht verstanden" aria-pressed="false" title="Nicht verstanden, für die Session mit Claude vormerken (U)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.8"/><path d="M12 17.2h.01"/></svg></button>
       <button class="flag" id="flagBtn" aria-label="Karte melden" title="Karte melden (F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg></button>
       <button class="speak" id="speakBtn" aria-label="Vorlesen" title="Vorlesen (↓)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
       </span>
@@ -452,6 +458,21 @@ button.tile { text-align: left; color: var(--ink); }
   <textarea id="fbText" placeholder="Optional: was genau? (Diktieren geht auch)"></textarea>
   <div class="row"><button id="fbCancel">Abbrechen</button><button class="go" id="fbSend" disabled>Melden</button></div>
 </div>
+<div class="sheet-scrim" id="unkScrim" hidden></div>
+<div class="sheet" id="unkSheet" role="dialog" aria-modal="true" aria-labelledby="unkTitle" hidden>
+  <div class="sh-head">
+    <h3 id="unkTitle">Nicht verstanden</h3>
+    <button class="close" id="unkClose" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <p id="unkInfo">Das Thema wird für deine nächste Session mit Claude vorgemerkt. Die Karte bleibt im Stapel.</p>
+  <textarea id="unkText" placeholder="Optional: Was genau ist unklar? (Diktieren geht auch)"></textarea>
+  <div class="keyrow" id="unkKeyRow" hidden>
+    <p>Einmalig: Damit die Markierung im Hub ankommt, braucht dieser Browser deinen Hub-Link. Füge ihn hier ein (oder nur den Schlüssel).</p>
+    <input id="unkKey" type="text" autocomplete="off" placeholder="Hub-Link oder Schlüssel">
+    <p class="err" id="unkErr" hidden></p>
+  </div>
+  <div class="row" id="unkRow"><button id="unkDel" hidden>Doch verstanden</button><button id="unkCancel">Abbrechen</button><button class="go" id="unkSave">Vormerken</button></div>
+</div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
@@ -489,7 +510,7 @@ button.tile { text-align: left; color: var(--ink); }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "20.11. 15:50";
+  const APP_V = "20.11. 16:30";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -880,6 +901,7 @@ button.tile { text-align: left; color: var(--ink); }
     const card = $("card");
     card.className = "card back-in"; card.style.transform = ""; resetStamps();
     $("cType").textContent = (+c.stage === 1) ? "Aufzählen" : "Erkennen";
+    markUnkBtn(id);
     $("cLvl").textContent = LV_NAMES[lvl]; $("cLvl").hidden = run.active;
     // Immer die kurze Frage (ask) mit markiertem Erkennungsmerkmal; die lange Fassung (q) nur, wenn ask fehlt
     $("cAsk").innerHTML = askHtml(c.ask || c.q || "");
@@ -1581,6 +1603,103 @@ button.tile { text-align: left; color: var(--ink); }
   });
   $("flagBtn").addEventListener("click", openFeedback);
 
+  // ---------- Nicht verstanden ----------
+  // Gleiche Liste wie "Nicht verstanden" im Lernkurs M2: Hub-Speicher, Pfad kurs/unklar (Blatt hubdata im Studien-Hub Wochenplan).
+  // Claude nennt offene Einträge zu Beginn jeder Lernsession und setzt sie nach dem Klären auf "geklärt".
+  // Der Hub-Schlüssel liegt im Browser unter "hub-key" (gleiche Adresse julylue.github.io wie Hub und Lernkurs, darum meist schon da).
+  const HUB_API = "https://script.google.com/macros/s/AKfycby527965MYC7xpuzDuMsJ867wvj5lUO3fpVItky-bHpHem6PknQ8ef4VaiV6KrKQ87t/exec";
+  const UNK_PATH = "kurs/unklar";
+  const unkId = id => "karten|" + id;
+  const hubKey = () => { try { return localStorage.getItem("hub-key") || ""; } catch (_) { return ""; } };
+  let unk = store.get("unklar", {}) || {}, unkDirty = store.get("unklarDirty", false), unkBusy = false;
+  const unkOpen = id => { const e = unk[unkId(id)]; return e && e.status === "offen" ? e : null; };
+  function unkSet(id, entry) {
+    const k = unkId(id); unk[k] = Object.assign({}, unk[k] || {}, entry, { id: k, upd: Date.now() });
+    store.set("unklar", unk); unkDirty = true; store.set("unklarDirty", true);
+  }
+  function unkMerge(a, b) {
+    const out = Object.assign({}, a || {});
+    Object.keys(b || {}).forEach(k => { if (!out[k] || (b[k].upd || 0) > (out[k].upd || 0)) out[k] = b[k]; });
+    return out;
+  }
+  async function hubCall(ops, data) {
+    const res = await fetch(HUB_API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ k: hubKey(), ops, data }) });
+    const j = await res.json(); if (!j || !j.ok) throw new Error("hub"); return j;
+  }
+  // Holt die aktuelle Liste (auch Einträge aus dem Lernkurs und von Claude), führt nach upd zusammen und schreibt sie zurück.
+  async function pushUnklar() {
+    if (unkBusy || !hubKey()) return false;
+    unkBusy = true;
+    try {
+      const j = await hubCall([], true);
+      const remote = (j.data && j.data[UNK_PATH]) || {};
+      const merged = unkMerge(remote, unk);
+      // Lokal nur die Karten-Einträge behalten, damit Claudes "geklärt" hier ankommt
+      const mine = {}; Object.keys(merged).forEach(k => { if (k.startsWith("karten|")) mine[k] = merged[k]; });
+      unk = mine; store.set("unklar", unk);
+      if (JSON.stringify(merged) !== JSON.stringify(remote)) await hubCall([{ t: "set", path: UNK_PATH, value: merged }], false);
+      unkDirty = false; store.set("unklarDirty", false);
+      if (session.current) markUnkBtn(session.current);
+      return true;
+    } catch (_) { return false; } finally { unkBusy = false; }
+  }
+  function markUnkBtn(id) {
+    const on = !!(id && unkOpen(id)), b = $("unkBtn");
+    b.classList.toggle("unk-on", on); b.setAttribute("aria-pressed", on ? "true" : "false");
+    b.setAttribute("aria-label", on ? "Als unklar vorgemerkt" : "Nicht verstanden");
+  }
+  const unkUi = { id: null, wasPaused: false };
+  function openUnklar() {
+    const id = run.active ? run.list[run.idx] : session.current;
+    if (!id || !cards.get(id)) return;
+    unkUi.id = id; unkUi.wasPaused = run.active && run.paused;
+    if (run.active) runPause(); else stopSpeech();
+    const e = unkOpen(id);
+    $("unkText").value = e ? (e.note || "") : "";
+    $("unkInfo").textContent = e ? "Ist schon für deine nächste Session mit Claude vorgemerkt. Du kannst die Notiz ergänzen." : "Das Thema wird für deine nächste Session mit Claude vorgemerkt. Die Karte bleibt im Stapel.";
+    $("unkDel").hidden = !e; $("unkSave").textContent = e ? "Speichern" : "Vormerken";
+    $("unkKeyRow").hidden = !!hubKey(); $("unkKey").value = ""; $("unkErr").hidden = true;
+    $("unkSheet").hidden = false; $("unkScrim").hidden = false;
+    setTimeout(() => $("unkText").focus({ preventScroll: true }), 50);
+  }
+  function closeUnklar(resume) {
+    $("unkSheet").hidden = true; $("unkScrim").hidden = true;
+    if (resume && run.active && !unkUi.wasPaused) runResume();
+    unkUi.id = null;
+  }
+  function takeKey() {
+    let v = ($("unkKey").value || "").trim(); const m = /[?&]k=([^&#\s]+)/.exec(v); if (m) v = decodeURIComponent(m[1]);
+    if (v) { try { localStorage.setItem("hub-key", v); } catch (_) {} }
+    return !!v;
+  }
+  async function saveUnklar(entry, msg) {
+    const id = unkUi.id; if (!id) return;
+    const hadKey = !!hubKey(), gotKey = hadKey || takeKey();
+    unkSet(id, entry); markUnkBtn(id);
+    closeUnklar(true);
+    if (!gotKey) { toast("Auf diesem Gerät gemerkt. Für den Hub fehlt noch der Hub-Link."); return; }
+    toast(msg);
+    const ok = await pushUnklar();
+    if (!ok) {
+      if (!hadKey) { try { localStorage.removeItem("hub-key"); } catch (_) {} toast("Der Hub hat den Schlüssel nicht angenommen. Gemerkt ist es trotzdem, versuch den Link beim nächsten Mal noch einmal."); }
+      else toast("Gerade offline. Die Markierung wird nachgetragen.");
+    }
+  }
+  $("unkSave").addEventListener("click", () => {
+    const id = unkUi.id; if (!id) return;
+    const c = cards.get(id) || {}, d = new Date();
+    saveUnklar({
+      status: "offen", lektion: "M1 Karteikarten " + courseOf(c), kapitel: String(c.topic || ""),
+      schritt: String(c.ask || c.q || "").replace(/\*\*/g, ""), note: $("unkText").value.trim(),
+      am: d.toLocaleDateString("de-DE") + " " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })
+    }, unkOpen(id) ? "Notiz gespeichert." : "Vorgemerkt für die nächste Session mit Claude.");
+  });
+  $("unkDel").addEventListener("click", () => saveUnklar({ status: "entfernt" }, "Markierung entfernt."));
+  $("unkCancel").addEventListener("click", () => closeUnklar(true));
+  $("unkClose").addEventListener("click", () => closeUnklar(true));
+  $("unkScrim").addEventListener("click", () => closeUnklar(true));
+  $("unkBtn").addEventListener("click", openUnklar);
+
   // ---------- Bestimmte Karten üben ----------
   const pick = { set: "due", course: "all" };
   const PICK_NOTE = {
@@ -1616,6 +1735,11 @@ button.tile { text-align: left; color: var(--ink); }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key, inField = /^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName || "");
     const take = fn => { e.preventDefault(); fn(); };
+    if (visible("unkSheet")) {
+      if (k === "Escape") return take(() => closeUnklar(true));
+      if (k === "Enter" && !e.shiftKey) return take(() => $("unkSave").click());
+      return;
+    }
     // Meldeblatt offen
     if (visible("fbSheet")) {
       if (k === "Escape") return take(() => closeFeedback(true));
@@ -1645,9 +1769,11 @@ button.tile { text-align: left; color: var(--ink); }
       if (KEY_NO.includes(k)) return take(() => runJump(-1));
       if (KEY_YES.includes(k)) return take(() => runJump(1));
       if (k === "f" || k === "F") return take(openFeedback);
+      if (k === "u" || k === "U") return take(openUnklar);
       return;
     }
     if (k === "f" || k === "F") return take(openFeedback);
+    if (k === "u" || k === "U") return take(openUnklar);
     if (KEY_SPEAK.includes(k)) return take(() => $("speakBtn").click());
     if (isMc()) {
       const go = k === "Enter" || k === " " || KEY_YES.includes(k);
@@ -1673,8 +1799,9 @@ button.tile { text-align: left; color: var(--ink); }
     $("homeNote").textContent = "Öffne die App einmal über deinen persönlichen Link, danach geht es von hier."; $("homeNote").hidden = false;
   }
   sync();
-  window.addEventListener("online", sync);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) { sync(); checkUpdate(); } });
+  pushUnklar();
+  window.addEventListener("online", () => { sync(); pushUnklar(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { sync(); pushUnklar(); checkUpdate(); } });
   async function checkUpdate() {
     if (session.active || run.active) return;
     try {
