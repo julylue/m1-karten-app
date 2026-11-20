@@ -98,6 +98,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .tap-hint { margin-top: auto; text-align: center; font-size: 15px; color: var(--muted); }
 .answer { border-top: 1px solid var(--line); padding-top: 22px; width: 100%; min-width: 0; }
 .answer .term { font-size: 26px; font-weight: 800; color: var(--term); line-height: 1.2; width: 100%; }
+.answer .expl { font-size: 19px; font-weight: 600; color: var(--term); line-height: 1.4; width: 100%; }
 .answer ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
 .answer li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; }
 .answer li > i { font-style: normal; width: 28px; height: 28px; border-radius: 50%; background: var(--num-bg); color: var(--term); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
@@ -513,7 +514,7 @@ button.tile { text-align: left; color: var(--ink); }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "20.11. 17:00";
+  const APP_V = "20.11. 17:30";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -701,6 +702,12 @@ button.tile { text-align: left; color: var(--ink); }
   function fillAnswer(c, box) {
     box = box || $("cAnswer"); box.replaceChildren();
     const raw = String(c.a || "") || ((mcOpts(c) || [])[0] || "");
+    // Begriff erklären (stage 3): Antwort ist eine kurze Erklärung, als Absatz zeigen
+    if (isExpl(c)) {
+      const t = document.createElement("div"); t.className = "expl"; t.textContent = raw; box.append(t);
+      if (c.note) { const n = document.createElement("div"); n.className = "anote"; n.textContent = c.note; box.append(n); }
+      return;
+    }
     const parts = raw.split(";").map(s => s.trim()).filter(Boolean);
     if (parts.length > 1) {
       const ol = document.createElement("ol");
@@ -723,6 +730,9 @@ button.tile { text-align: left; color: var(--ink); }
     if (c.note) { const n = document.createElement("div"); n.className = "anote"; n.textContent = c.note; box.append(n); }
   }
   // Auswahl-Karte (Erkennen): Spalte "auswahl" = "richtig | falsch | falsch | falsch"
+  // Begriff erklären: Begriff vorne (ask), kurze Erklärung der Dozentin hinten (a). Seit 20.11.2026.
+  const isExpl = c => +(c && c.stage) === 3;
+  const explTerm = c => { const m = String(c.ask || c.q || "").match(/\*\*(.+?)\*\*/); return m ? m[1] : String(c.ask || c.q || ""); };
   function mcOpts(c) { const o = String(c.auswahl || "").split("|").map(x => x.trim()).filter(Boolean); return o.length >= 3 ? o : null; }
 
   // ---------- Stufenleiter ----------
@@ -752,13 +762,13 @@ button.tile { text-align: left; color: var(--ink); }
     }).filter(Boolean);
   }
   // Alte Auswahl-Karten (Erkennen, auswahl vorhanden, geprueft leer) dürfen Auswählen weiter nutzen.
-  const legacyMc = c => +c.stage !== 1 && !!mcOpts(c) && isBlank(c.geprueft);
+  const legacyMc = c => +c.stage === 2 && !!mcOpts(c) && isBlank(c.geprueft);
   function levelsOf(c) {
     const lv = [], ok = isJa(c.geprueft);
     if (+c.stage === 1) { if (ok && listOpts(c)) lv.push(0); }
-    else if (mcOpts(c) && (ok || isBlank(c.geprueft))) lv.push(0);
+    else if (mcOpts(c) && (ok || (isBlank(c.geprueft) && !isExpl(c)))) lv.push(0);
     if (ok && stmtsOf(c).length) lv.push(1);
-    if (termsOf(c).length || !lv.length) lv.push(2);
+    if (isExpl(c) || termsOf(c).length || !lv.length) lv.push(2);
     return lv;
   }
   let ladder = store.get("ladder", {}) || {};
@@ -922,9 +932,9 @@ button.tile { text-align: left; color: var(--ink); }
     session.lvl = lvl;
     const card = $("card");
     card.className = "card back-in"; card.style.transform = ""; resetStamps();
-    $("cType").textContent = (+c.stage === 1) ? "Aufzählen" : "Erkennen";
+    $("cType").textContent = (+c.stage === 1) ? "Aufzählen" : isExpl(c) ? "Erklären" : "Erkennen";
     markUnkBtn(id);
-    $("cLvl").textContent = LV_NAMES[lvl]; $("cLvl").hidden = run.active;
+    $("cLvl").textContent = lvl === 2 && isExpl(c) ? "Selbst erklären" : LV_NAMES[lvl]; $("cLvl").hidden = run.active;
     // Immer die kurze Frage (ask) mit markiertem Erkennungsmerkmal; die lange Fassung (q) nur, wenn ask fehlt
     $("cAsk").innerHTML = askHtml(c.ask || c.q || "");
     fillAnswer(c);
@@ -975,7 +985,7 @@ button.tile { text-align: left; color: var(--ink); }
       session.misses++;
       // Einmal nach ein paar Karten nochmal (nicht erst am Rundenende, falls die Runde abgebrochen wird), beim zweiten Mal erst morgen wieder; dann einmal aufschreiben (egal auf welcher Stufe)
       if (!session.requeued.has(id)) { session.requeued.add(id); session.queue.splice(Math.min(REQUEUE_GAP, session.queue.length), 0, id); }
-      else { session.done++; mustWrite = true; }
+      else { session.done++; mustWrite = !isExpl(cards.get(id)); }
     }
     else session.done++;
     pending.push({ id, st: next, r: g, t: now }); store.set("pending", pending);
@@ -1539,7 +1549,7 @@ button.tile { text-align: left; color: var(--ink); }
       const main = document.createElement("div"); main.className = "ov-main";
       const dot = document.createElement("i"); dot.className = "dot " + stt;
       const term = document.createElement("span"); term.className = "ov-term"; const askText = String(c.ask || c.q || "").replace(/\*\*/g, ""); const isList = +c.stage === 1;
-      term.textContent = isList ? askText : termOf(c);
+      term.textContent = isList ? askText : isExpl(c) ? "Was ist: " + explTerm(c) : termOf(c);
       const when = document.createElement("span"); when.className = "ov-when";
       when.textContent = stt === "new" ? "neu" : (st.due <= Date.now() ? "fällig" : fmtWhen(st.due));
       main.append(dot, term, when);
