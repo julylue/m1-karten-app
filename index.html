@@ -134,6 +134,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .tf { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .tf button { padding: 18px 10px; border-radius: 16px; font-size: 17px; font-weight: 700; background: var(--card); color: var(--ink); box-shadow: inset 0 0 0 2px var(--line); }
 .tf button:active { transform: scale(.98); }
+.dk { display: block; width: 100%; padding: 13px; border-radius: 16px; font-size: 16px; font-weight: 600; color: var(--muted); background: transparent; box-shadow: inset 0 0 0 1.5px var(--line); margin-top: 10px; }
+.dk:active { transform: scale(.98); }
 .answer .aq { font-size: 15px; line-height: 1.4; color: var(--muted); margin: 0 0 10px; }
 /* Abfragestufe der Karte */
 .tl-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -360,6 +362,7 @@ button.tile { text-align: left; color: var(--ink); }
       <button type="button" data-v="1">Stimmt &rarr;</button>
     </div>
     <button class="primary" id="mcCheck" hidden disabled>Prüfen</button>
+    <button type="button" class="dk" id="dkBtn" hidden title="Weiß ich nicht (0)">Weiß ich nicht</button>
     <button class="primary" id="mcNext" hidden>Weiter</button>
     <p class="swipe-hint" id="swipeHint" hidden><span class="touch-only">Oder die Karte nach links oder rechts wischen.</span><span class="desk-only">Oder ← und → auf der Tastatur. ↓ liest vor, F meldet die Karte.</span></p>
     <div class="runctl" id="runCtl" hidden>
@@ -510,7 +513,7 @@ button.tile { text-align: left; color: var(--ink); }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "20.11. 16:30";
+  const APP_V = "20.11. 17:00";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -823,6 +826,7 @@ button.tile { text-align: left; color: var(--ink); }
     });
     box.hidden = false; $("mcNote").hidden = true; $("mcNext").hidden = true;
     $("mcCheck").hidden = !mc.multi; $("mcCheck").disabled = true;
+    $("dkBtn").hidden = false;
   }
   function missNote() { return session.requeued.has(session.current) ? "Nicht ganz." : "Nicht ganz. Die Karte kommt gleich nochmal."; }
   function settle(right, text) {
@@ -831,7 +835,7 @@ button.tile { text-align: left; color: var(--ink); }
     note.textContent = text; note.hidden = false; note.className = "mc-note " + (right ? "ok" : "no");
     // Richtig oder falsch: Urteil direkt unter die Aussage, darunter die Antwort der Karte
     if (session.lvl === 1) $("card").insertBefore(note, $("cAnswer"));
-    $("mcCheck").hidden = true;
+    $("mcCheck").hidden = true; $("dkBtn").hidden = true;
     markSpeak();
     // Richtig: kurz bestätigen und automatisch weiter, ohne Knopf. Falsch: Weiter-Knopf, damit die Korrektur in Ruhe gelesen werden kann.
     if (right) { const id = session.current; setTimeout(() => { if (session.current === id && session.okNow === true) nextMc(); }, session.lvl === 1 ? 1400 : 800); }
@@ -875,6 +879,7 @@ button.tile { text-align: left; color: var(--ink); }
     const q = document.createElement("p"); q.className = "aq"; q.textContent = String(c.ask || c.q || "").replace(/\*\*/g, "");
     $("cAnswer").prepend(q);
     $("tf").hidden = false;
+    $("dkBtn").hidden = false;
   }
   function pickTf(says) {
     if (tf.picked !== null || !session.current || run.active || session.lvl !== 1) return;
@@ -888,6 +893,23 @@ button.tile { text-align: left; color: var(--ink); }
     settle(right, (right ? "Richtig. " : missNote() + " ") + (tf.s.ok ? "Die Aussage stimmt." : "Die Aussage stimmt nicht."));
     if (autoRead) speak("a");
   }
+  // Weiß ich nicht: statt zu raten die Lösung zeigen. Zählt wie "Noch nicht" (Karte kommt in der Runde nochmal, Stufe wie bei falsch).
+  function dkNote() { return session.requeued.has(session.current) ? "Okay, hier die Lösung." : "Okay, hier die Lösung. Die Karte kommt gleich nochmal."; }
+  function dontKnow() {
+    if (!session.current || run.active || session.okNow !== null) return;
+    if (session.lvl === 0 && mc.picked === null) {
+      mc.picked = -2;
+      const box = $("cMc"); box.classList.add("picked");
+      [...box.querySelectorAll("button")].forEach((x, i) => { x.classList.remove("sel"); if (mc.right.has(mc.order[i])) x.classList.add(mc.multi ? "missed" : "right"); });
+      settle(false, dkNote() + (mc.multi ? " Gestrichelt: die richtigen Begriffe." : ""));
+    } else if (session.lvl === 1 && tf.picked === null) {
+      tf.picked = "?"; $("tf").hidden = true;
+      $("cAnswer").hidden = false; requestAnimationFrame(fitAll);
+      settle(false, dkNote() + " " + (tf.s.ok ? "Die Aussage stimmt." : "Die Aussage stimmt nicht."));
+      if (autoRead) speak("a");
+    }
+  }
+  $("dkBtn").addEventListener("click", dontKnow);
   function nextMc() { if (session.okNow === null || !session.current) return; $("mcNext").hidden = true; answer(session.okNow ? OK_G : 1); }
   $("cMc").addEventListener("click", e => { const b = e.target.closest("button"); if (b) pickMc(+b.dataset.n); });
   $("mcCheck").addEventListener("click", checkMulti);
@@ -908,7 +930,7 @@ button.tile { text-align: left; color: var(--ink); }
     fillAnswer(c);
     $("cAnswer").hidden = true; $("tapHint").hidden = lvl !== 2 || run.active;
     $("answers").hidden = true; $("swipeHint").hidden = true;
-    $("mcNext").hidden = true; $("mcNote").hidden = true; $("mcCheck").hidden = true; $("tf").hidden = true;
+    $("mcNext").hidden = true; $("mcNote").hidden = true; $("mcCheck").hidden = true; $("tf").hidden = true; $("dkBtn").hidden = true;
     $("cMc").hidden = true; $("cMc").replaceChildren();
     $("cMc").after($("mcNote")); $("mcNote").className = "mc-note";
     if (lvl === 0) showMc(c); else if (lvl === 1) showTf(c);
@@ -1780,11 +1802,13 @@ button.tile { text-align: left; color: var(--ink); }
       if (session.okNow !== null) { if (go) take(nextMc); return; }
       if (session.lvl === 0) {
         if (/^[1-9]$/.test(k)) return take(() => pickMc(+k - 1));
+        if (k === "0") return take(dontKnow);
         if (mc.multi && k === "Enter" && !$("mcCheck").disabled) return take(checkMulti);
         return;
       }
       if (KEY_YES.includes(k)) return take(() => pickTf(true));
       if (KEY_NO.includes(k)) return take(() => pickTf(false));
+      if (k === "0") return take(dontKnow);
       return;
     }
     if (!session.revealed) { if (KEY_REVEAL.includes(k)) take(reveal); return; }
