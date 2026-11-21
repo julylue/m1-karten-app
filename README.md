@@ -20,3 +20,12 @@ Karteikarten-App für M1 Psychologie (FernUni Hagen). Statische Seite auf GitHub
 Die Tonspuren in `audio/` sind mit [ElevenLabs](https://elevenlabs.io) erzeugt (Text-to-Speech), daher steht "elevenlabs.io" in jedem Dateinamen. Nicht-kommerzielle Lernhilfe.
 
 Veröffentlichung: Push auf main, GitHub Pages ist nach etwa einer Minute aktuell.
+
+## Klausurtrainer (`trainer/`)
+
+Der M1-Klausurtrainer als eigene App: `https://julylue.github.io/m1-karten-app/trainer/?k=<Hub-Schlüssel>`.
+
+- Nur für July: Klausurtexte, Fundstellen und Themen liegen ausschließlich verschlüsselt in `trainer/data.enc` (AES-256-GCM, PBKDF2). Schlüssel ist der Hub-Schlüssel. Ohne Schlüssel zeigt die Seite nur ein Eingabefeld. Keine Gast-Fassung mit Originalwortlaut (Klausurtexte dürfen laut FernUni nicht weitergegeben werden).
+- Fortschritt: pro Gerät im Browser und im Hub-Speicher unter `klausurtrainer/progress` (Blatt hubdata im Studien-Hub Wochenplan), zusammengeführt pro Aussage nach dem jüngeren Stand.
+- Quelle der Inhalte ist weiterhin das Klausurtrainer-Artifact. Nach Änderungen dort neu bauen: `KT_KEY=<Hub-Schlüssel> python3 -I scripts/build-trainer.py <artifact-index.html>`, dann pushen. Ändert sich der Hub-Schlüssel, ebenso neu bauen.
+- Offline: über `sw.js` im Hauptordner.
