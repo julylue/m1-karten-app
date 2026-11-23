@@ -525,7 +525,7 @@ button.tile { text-align: left; color: var(--ink); }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "24.11. 01:05";
+  const APP_V = "24.11. 01:15";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -1278,7 +1278,11 @@ button.tile { text-align: left; color: var(--ink); }
   }
   function speakError(err) {
     const m = String(err && err.message || "");
-    toast(m.includes("nokey") ? "Vorlesen ist noch nicht eingerichtet." : (navigator.onLine ? "Vorlesen hat gerade nicht geklappt." : "Diese Karte ist offline noch nicht vertont."));
+    if (!navigator.onLine) { toast("Diese Karte ist offline noch nicht vertont."); return; }
+    if (m.includes("nokey")) { toast("Vorlesen ist noch nicht eingerichtet."); return; }
+    if (m === "key") { toast("Vorlesen geht nicht: Der Zugangsschlüssel wird abgelehnt."); return; }
+    // Echte Fehlermeldung mit anzeigen, damit sich die Ursache erkennen lässt (z. B. Kontingent bei ElevenLabs aufgebraucht).
+    toast("Vorlesen hat gerade nicht geklappt" + (m && m !== "audio" ? " (" + m.slice(0, 80) + ")." : "."));
   }
   async function speakCard(c, part) {
     stopSpeech(); const my = speakToken;
