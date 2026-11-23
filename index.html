@@ -167,6 +167,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 /* Durchlauf */
 .setup { background: var(--card); border-radius: 20px; box-shadow: var(--shadow); padding: 20px; display: grid; gap: 14px; }
+#runSetup .setup, #pick .setup { min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 0 1 auto; }
+#runSetup .home-main, #pick .home-main { flex: 0 0 0; }
+#runSetup .primary, #pick .primary { flex: none; }
 .setup .lab { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-weight: 600; }
 .setup .lab b { color: var(--term); font-variant-numeric: tabular-nums; }
 .setup input[type=range] { width: 100%; accent-color: var(--accent); margin: 0 0 6px; }
@@ -522,7 +525,7 @@ button.tile { text-align: left; color: var(--ink); }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "24.11. 00:55";
+  const APP_V = "24.11. 01:05";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
