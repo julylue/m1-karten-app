@@ -419,8 +419,16 @@ button.tile { text-align: left; color: var(--ink); }
       <input type="range" id="pFront" min="1" max="15" step="1">
       <div class="lab"><label for="pNext">Pause vor der nächsten Karte</label><b id="pNextVal"></b></div>
       <input type="range" id="pNext" min="1" max="10" step="1">
-      <div class="seg" id="runSet"><button data-set="due" class="on" aria-pressed="true">Heute fällig</button><button data-set="all" aria-pressed="false">Alle Karten</button></div>
-      <p class="note">Die Karten drehen sich von selbst. Antworten werden dabei nicht gespeichert, dein Lernstand bleibt gleich.</p>
+      <div class="lab"><span>Welche Karten</span></div>
+      <div class="picks" id="runSet">
+        <button class="pick-opt on" data-set="due" aria-pressed="true"><span>Heute dran</span><b id="rsN-due">0</b></button>
+        <button class="pick-opt" data-set="weak" aria-pressed="false"><span>Noch unsicher</span><b id="rsN-weak">0</b></button>
+        <button class="pick-opt" data-set="new" aria-pressed="false"><span>Neu</span><b id="rsN-new">0</b></button>
+        <button class="pick-opt" data-set="all" aria-pressed="false"><span>Alle</span><b id="rsN-all">0</b></button>
+      </div>
+      <div class="lab"><span>Kurs</span></div>
+      <div class="seg seg5" id="runCourse"><button data-c="all" class="on" aria-pressed="true">Alle</button><button data-c="Psy" aria-pressed="false">Psy</button><button data-c="FoM" aria-pressed="false">FoM</button><button data-c="KuV" aria-pressed="false">KuV</button><button data-c="Stat" aria-pressed="false">Stat</button></div>
+      <p class="note" id="rsNote"></p>
     </div>
     <div class="home-main"></div>
     <button class="primary" id="rsStart">Durchlauf starten</button>
@@ -514,7 +522,7 @@ button.tile { text-align: left; color: var(--ink); }
   }
 
   // ---------- Daten (Google-Tabelle, offline zwischengespeichert) ----------
-  const APP_V = "20.11. 17:30";
+  const APP_V = "24.11. 00:55";
   const API = "https://script.google.com/macros/s/AKfycbw-04Xxv1wm0WRo00enZupFwBUhhtYb7Qu0W8G8m9Qe7SOw9rvuKMKttNRyTRNr5zgu/exec";
   const params = new URLSearchParams(location.search);
   const store = {
@@ -1368,7 +1376,7 @@ button.tile { text-align: left; color: var(--ink); }
   });
 
   // ---------- Durchlauf ----------
-  const run = { active: false, paused: false, list: [], idx: 0, gen: 0, set: "due",
+  const run = { active: false, paused: false, list: [], idx: 0, gen: 0, set: "due", course: "all",
     pFront: store.get("pFront", 4), pNext: store.get("pNext", 2) };
   function setRunLabels() {
     $("pFront").value = run.pFront; $("pNext").value = run.pNext;
@@ -1376,20 +1384,29 @@ button.tile { text-align: left; color: var(--ink); }
   }
   $("pFront").addEventListener("input", e => { run.pFront = +e.target.value; store.set("pFront", run.pFront); setRunLabels(); });
   $("pNext").addEventListener("input", e => { run.pNext = +e.target.value; store.set("pNext", run.pNext); setRunLabels(); });
-  $("runSet").addEventListener("click", e => {
-    const b = e.target.closest("button"); if (!b) return;
-    run.set = b.dataset.set; $("runSet").querySelectorAll("button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
-  });
-  $("mRun").addEventListener("click", () => { openMenu(false); setRunLabels(); show("runSetup"); });
+  // Dieselbe Auswahl wie bei "Bestimmte Karten üben" (pickList), nur wird hier angehört statt abgefragt.
+  const RUN_NOTE = {
+    due: "Fällige Karten und alle neuen.",
+    weak: "Karten, die du zuletzt nicht wusstest oder mindestens zweimal nicht wusstest und die noch keine Woche Abstand haben.",
+    new: "Alle Karten, die du noch nie gesehen hast.",
+    all: "Alle Karten, leichte zuerst."
+  };
+  function renderRunSetup() {
+    let n = 0;
+    ["due", "weak", "new", "all"].forEach(k => { const len = pickList(k, run.course).length; $("rsN-" + k).textContent = len; if (k === run.set) n = len; });
+    $("runSet").querySelectorAll(".pick-opt").forEach(x => { const on = x.dataset.set === run.set; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on ? "true" : "false"); });
+    $("runCourse").querySelectorAll("button").forEach(x => { const on = x.dataset.c === run.course; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on ? "true" : "false"); });
+    $("rsNote").textContent = RUN_NOTE[run.set] + " Die Karten drehen sich von selbst. Antworten werden dabei nicht gespeichert, dein Lernstand bleibt gleich.";
+    $("rsStart").textContent = n ? (n === 1 ? "1 Karte anhören" : n + " Karten anhören") : "Keine Karten";
+    $("rsStart").disabled = !n;
+  }
+  $("runSet").addEventListener("click", e => { const b = e.target.closest(".pick-opt"); if (!b) return; run.set = b.dataset.set; renderRunSetup(); });
+  $("runCourse").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; run.course = b.dataset.c; renderRunSetup(); });
+  $("mRun").addEventListener("click", () => { openMenu(false); setRunLabels(); renderRunSetup(); show("runSetup"); });
   $("rsBack").addEventListener("click", () => { show("home"); renderHome(); });
   $("rsStart").addEventListener("click", () => {
     unlockAudio();
-    let list;
-    if (run.set === "due") { const { due, fresh } = dueLists(endOfToday()); list = [...due, ...fresh]; }
-    if (!list || !list.length) {
-      list = [...cards.keys()].filter(id => !isPaused(id)).sort((a, b) => { const x = cards.get(a), y = cards.get(b); return (x.stage || 9) - (y.stage || 9) || (x.order || 0) - (y.order || 0); });
-      if (run.set === "due") toast("Heute ist nichts fällig, du hörst alle Karten.");
-    }
+    const list = pickList(run.set, run.course);
     if (!list.length) return;
     run.list = list; run.idx = 0; run.active = true; run.paused = false;
     session.active = true;
